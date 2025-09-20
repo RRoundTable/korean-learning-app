@@ -1,0 +1,32 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+When working in components directory:
+Always use Tailwind for styling
+Use Framer Motion for animations
+Follow component naming conventions
+
+This rule enforces validation for API endpoints:
+In API directory:
+- Use zod for all validation
+- Define return types with zod schemas
+- Export types generated from schemas
+
+This project uses pnpm.
+
+## Data schema
+Generate the migration to add the new fields:
+```
+pnpm run db:generate:dev
+```
+
+Run the migration to add the new fields:
+
+```bash
+pnpm run db:migrate:dev
+```
+
+Write down long term planning  to Planning.md
