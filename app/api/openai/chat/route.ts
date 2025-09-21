@@ -125,7 +125,7 @@ JSON 응답 형식:
     }
 
     // Call OpenAI Chat Completions API
-    const model = process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini"
+    const model = process.env.OPENAI_CHAT_MODEL || "gpt-5-mini"
     const requestBody: any = {
       model,
       messages,
