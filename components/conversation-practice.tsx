@@ -1,42 +1,288 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Volume2, Languages, Eye, Bookmark, Mic, X, ArrowUp, Settings, Lightbulb } from "lucide-react"
+import { Volume2, Languages, Eye, Bookmark, Mic, X, ArrowUp, Settings, Lightbulb, Loader2 } from "lucide-react"
+import { useLearningContext } from "@/contexts/LearningContext"
+import { apiClient } from "@/lib/api"
 
 interface ConversationPracticeProps {
   scenario: any
   onBack: () => void
 }
 
+interface Message {
+  id: string
+  role: "user" | "assistant"
+  text: string
+  translation?: string
+  isWaiting?: boolean
+}
+
 export function ConversationPractice({ scenario, onBack }: ConversationPracticeProps) {
-  const [currentTaskIndex, setCurrentTaskIndex] = useState(0)
-  const [isListening, setIsListening] = useState(false)
+  const {
+    currentTaskIndex,
+    currentTask,
+    progress,
+    isListening,
+    isAgentSpeaking,
+    sessionId,
+    attempts,
+    setListening,
+    setAgentSpeaking,
+    markCurrentTaskSuccess,
+    gotoNextTask,
+    incrementAttempts,
+    saveProgress,
+  } = useLearningContext()
+
   const [showTranslation, setShowTranslation] = useState(false)
   const [showHint, setShowHint] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
-
-  const currentTask = scenario.tasks?.[currentTaskIndex]
-
-  const messages = [
+  const [isRecording, setIsRecording] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [recordingDuration, setRecordingDuration] = useState(0)
+  const [feedback, setFeedback] = useState<string | null>(null)
+  const [score, setScore] = useState<number | null>(null)
+  const [messages, setMessages] = useState<Message[]>([
     {
-      id: 1,
-      text: "Hi, I'm Robin! Are you Amy's friend?",
-      translation: "안녕하세요, 저는 로빈이에요! 에이미 친구맞으세요?",
-      isUser: false,
+      id: "initial",
+      role: "assistant",
+      text: "안녕하세요! 저는 로빈이에요. 에이미 친구맞으세요?",
+      translation: "Hi, I'm Robin! Are you Amy's friend?",
     },
     {
-      id: 2,
+      id: "user-waiting",
+      role: "user",
       text: "",
-      hint: "I really like kimchi and bulgogi.",
-      isUser: true,
       isWaiting: true,
     },
-  ]
+  ])
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  // Recording functionality
+  useEffect(() => {
+    return () => {
+      // Cleanup on unmount
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current)
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop()
+      }
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current = null
+      }
+    }
+  }, [])
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: "audio/webm;codecs=opus",
+      })
+
+      mediaRecorderRef.current = mediaRecorder
+      audioChunksRef.current = []
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data)
+        }
+      }
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" })
+        stream.getTracks().forEach(track => track.stop())
+        await processAudio(audioBlob)
+      }
+
+      mediaRecorder.start()
+      setIsRecording(true)
+      setListening(true)
+      setRecordingDuration(0)
+
+      // Start timer
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 1)
+      }, 1000)
+    } catch (error) {
+      console.error("Error starting recording:", error)
+      alert("마이크 접근 권한이 필요합니다.")
+    }
+  }
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop()
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current)
+      recordingTimerRef.current = null
+    }
+    setIsRecording(false)
+    setListening(false)
+  }
+
+  const processAudio = async (audioBlob: Blob) => {
+    setIsProcessing(true)
+    
+    try {
+      // Step 1: STT - Convert audio to text
+      const sttResponse = await apiClient.stt(audioBlob, { 
+        language: "ko",
+        prompt: "한국어 대화 연습" 
+      })
+      
+      const userText = sttResponse.text.trim()
+      if (!userText) {
+        throw new Error("음성을 인식할 수 없습니다. 다시 시도해주세요.")
+      }
+
+      // Update user message
+      setMessages(prev => prev.map(msg => 
+        msg.id === "user-waiting" || (msg.role === "user" && msg.isWaiting)
+          ? { ...msg, text: userText, isWaiting: false }
+          : msg
+      ))
+
+      // Step 2: Get LLM chat response with scenario context
+      const memoryHistory = messages
+        .filter(msg => !msg.isWaiting && msg.text)
+        .map(msg => ({ role: msg.role, text: msg.text }))
+      
+      const chatResponse = await apiClient.chat({
+        sessionId,
+        userMessage: userText,
+        scenarioContext: {
+          scenarioId: scenario.id,
+          title: scenario.title,
+          constraints: scenario.constraints || {},
+          tasks: scenario.tasks?.map((task: any, idx: number) => ({
+            id: `t-${idx}`,
+            ko: task.ko,
+            en: task.en,
+          })) || [],
+        },
+        progress: {
+          currentTaskIndex,
+          completed: progress.completed,
+          total: progress.total,
+        },
+        currentTask: currentTask ? {
+          id: currentTask.id,
+          ko: currentTask.ko,
+          en: currentTask.en,
+        } : undefined,
+        memoryHistory,
+      })
+
+      const turnResult = chatResponse.turnResult
+      const assistantText = turnResult?.agentReply || chatResponse.text
+      
+      // Add assistant message and new user waiting message
+      setMessages(prev => prev.concat([{
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        text: assistantText,
+        translation: undefined, // TODO: Add translation support
+      }, {
+        id: `user-waiting-${Date.now()}`,
+        role: "user",
+        text: "",
+        isWaiting: true,
+      }]))
+
+      // Step 3: Convert assistant response to speech
+      try {
+        setAgentSpeaking(true)
+        // Use OpenAI TTS (faster and more reliable for Korean)
+        const audioBlob = await apiClient.openaiTts({
+          text: assistantText,
+          voice: "nova", // Good for Korean
+          format: "mp3",
+        })
+
+        // Play the audio
+        const audioUrl = URL.createObjectURL(audioBlob)
+        const audio = new Audio(audioUrl)
+        audioRef.current = audio
+
+        audio.onended = () => {
+          setAgentSpeaking(false)
+          URL.revokeObjectURL(audioUrl)
+        }
+
+        audio.onerror = () => {
+          setAgentSpeaking(false)
+          URL.revokeObjectURL(audioUrl)
+          console.error("Audio playback failed")
+        }
+
+        await audio.play()
+      } catch (ttsError) {
+        console.error("TTS failed:", ttsError)
+        setAgentSpeaking(false)
+        // Continue without audio
+      }
+
+      // Handle task progress based on LLM response
+      if (turnResult?.success) {
+        markCurrentTaskSuccess()
+        setTimeout(() => {
+          gotoNextTask()
+          saveProgress()
+          
+          // Check if all tasks are completed
+          if (currentTaskIndex >= progress.total - 1) {
+            setTimeout(() => {
+              alert("축하합니다! 모든 과제를 완료했습니다! 🎉")
+            }, 1000)
+          }
+        }, 1500)
+      } else {
+        // Increment attempts for failed attempts
+        incrementAttempts()
+      }
+
+      // Show feedback if provided
+      if (turnResult?.feedback) {
+        setFeedback(turnResult.feedback)
+        setTimeout(() => setFeedback(null), 5000) // Clear after 5 seconds
+      }
+      
+      // Show score if provided
+      if (turnResult?.score !== undefined) {
+        setScore(turnResult.score)
+        setTimeout(() => setScore(null), 3000) // Clear after 3 seconds
+      }
+    } catch (error) {
+      console.error("Error processing audio:", error)
+      alert(error instanceof Error ? error.message : "오디오 처리 중 오류가 발생했습니다.")
+    } finally {
+      setIsProcessing(false)
+    }
+  }
 
   const handleMicPress = () => {
-    setIsListening(!isListening)
+    if (isAgentSpeaking) {
+      // Don't allow recording while agent is speaking
+      return
+    }
+    
+    if (isRecording) {
+      stopRecording()
+    } else if (!isProcessing) {
+      startRecording()
+    }
   }
 
   const handleTranslation = () => {
@@ -84,84 +330,183 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
       <div className="px-4 py-3 border-b border-border">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">
-            Tasks ({currentTaskIndex}/{scenario.tasks?.length || 3} completed)
+            Tasks ({progress.completed}/{progress.total} completed)
           </span>
-          <Button variant="ghost" size="sm" className="p-1">
-            <div className="flex flex-col gap-0.5">
-              <div className="w-3 h-0.5 bg-current"></div>
-              <div className="w-3 h-0.5 bg-current"></div>
-            </div>
-          </Button>
+          <div className="flex gap-1">
+            {Array.from({ length: progress.total }).map((_, i) => (
+              <motion.div
+                key={i}
+                className={`w-2 h-2 rounded-full ${
+                  i < progress.completed ? "bg-primary" : "bg-muted"
+                }`}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: i * 0.1 }}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Current Task */}
-      <div className="px-4 py-3 bg-muted/30">
-        <div className="flex items-start gap-3">
-          <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0 mt-0.5">
-            <div className="w-2 h-2 rounded-full bg-primary-foreground"></div>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentTaskIndex}
+          className="px-4 py-3 bg-muted/30"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="flex items-start gap-3">
+            <motion.div
+              className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0 mt-0.5"
+              animate={{ scale: currentTask?.status === "success" ? [1, 1.2, 1] : 1 }}
+              transition={{ duration: 0.5 }}
+            >
+              <div className="w-2 h-2 rounded-full bg-primary-foreground"></div>
+            </motion.div>
+            <p className="text-sm font-medium">{currentTask?.ko || "새로 사귄 친구에 대해 질문을 해보세요"}</p>
           </div>
-          <p className="text-sm font-medium">{currentTask?.ko || "새로 사귄 친구에 대해 질문을 해보세요"}</p>
-        </div>
-      </div>
+        </motion.div>
+      </AnimatePresence>
 
       {/* Messages Container */}
       <div className="flex-1 px-4 py-6 overflow-y-auto">
         <div className="max-w-2xl mx-auto space-y-4">
-          {messages.map((message) => (
-            <div key={message.id} className={`flex ${message.isUser ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[80%] md:max-w-[70%] ${message.isUser ? "order-2" : "order-1"}`}>
-                <Card className={`${message.isUser ? "bg-primary text-primary-foreground" : "bg-card"}`}>
-                  <CardContent className="p-4">
-                    {!message.isUser ? (
-                      <>
-                        <p className="font-medium mb-3">{message.text}</p>
-                        {showTranslation && <p className="text-sm opacity-70 mb-3">{message.translation}</p>}
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" className="p-1.5 h-auto">
-                            <Volume2 className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="p-1.5 h-auto" onClick={handleTranslation}>
-                            <Languages className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="p-1.5 h-auto">
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={`p-1.5 h-auto ml-auto ${isSaved ? "text-primary" : ""}`}
-                            onClick={handleSave}
-                          >
-                            <Bookmark className={`w-4 h-4 ${isSaved ? "fill-current" : ""}`} />
-                          </Button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="text-center">
-                        {message.isWaiting && !isListening && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm opacity-70">Press Record</span>
-                            <Button variant="ghost" size="sm" className="p-1.5 h-auto" onClick={handleHint}>
-                              <Lightbulb className="w-4 h-4" />
+          <AnimatePresence>
+            {messages.map((message) => (
+              <motion.div
+                key={message.id}
+                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className={`max-w-[80%] md:max-w-[70%] ${message.role === "user" ? "order-2" : "order-1"}`}>
+                  <Card className={`${message.role === "user" ? "bg-primary text-primary-foreground" : "bg-card"}`}>
+                    <CardContent className="p-4">
+                      {message.role === "assistant" ? (
+                        <>
+                          <p className="font-medium mb-3">{message.text}</p>
+                          {showTranslation && message.translation && (
+                            <motion.p
+                              className="text-sm opacity-70 mb-3"
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                            >
+                              {message.translation}
+                            </motion.p>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <Button variant="ghost" size="sm" className="p-1.5 h-auto">
+                              <Volume2 className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="p-1.5 h-auto" onClick={handleTranslation}>
+                              <Languages className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="p-1.5 h-auto">
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`p-1.5 h-auto ml-auto ${isSaved ? "text-primary" : ""}`}
+                              onClick={handleSave}
+                            >
+                              <Bookmark className={`w-4 h-4 ${isSaved ? "fill-current" : ""}`} />
                             </Button>
                           </div>
-                        )}
-                        {isListening && (
-                          <>
-                            <span className="text-sm opacity-70 mb-2 block">Speak now...</span>
-                            <AudioVisualization />
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          ))}
+                        </>
+                      ) : (
+                        <div className="text-center">
+                          {message.isWaiting && !isRecording && !isProcessing && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm opacity-70">Press Record</span>
+                              <Button variant="ghost" size="sm" className="p-1.5 h-auto" onClick={handleHint}>
+                                <Lightbulb className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          )}
+                          {isRecording && (
+                            <>
+                              <span className="text-sm opacity-70 mb-2 block">
+                                Recording... {Math.floor(recordingDuration / 60)}:{(recordingDuration % 60).toString().padStart(2, '0')}
+                              </span>
+                              <AudioVisualization />
+                            </>
+                          )}
+                          {isProcessing && (
+                            <div className="flex items-center justify-center gap-2">
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span className="text-sm opacity-70">Processing...</span>
+                            </div>
+                          )}
+                          {message.text && !message.isWaiting && (
+                            <p className="font-medium">{message.text}</p>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       </div>
+
+      {/* Feedback Display */}
+      <AnimatePresence>
+        {feedback && (
+          <motion.div
+            className="px-4 pb-2"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
+            <div className="max-w-2xl mx-auto">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="w-2 h-2 rounded-full bg-white"></div>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-blue-900">피드백</p>
+                    <p className="text-sm text-blue-700 mt-1">{feedback}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Score Display */}
+      <AnimatePresence>
+        {score !== null && (
+          <motion.div
+            className="px-4 pb-2"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+          >
+            <div className="max-w-2xl mx-auto flex justify-center">
+              <div className={`px-4 py-2 rounded-full text-sm font-bold ${
+                score >= 80 
+                  ? "bg-green-100 text-green-800 border border-green-200"
+                  : score >= 60
+                  ? "bg-yellow-100 text-yellow-800 border border-yellow-200"
+                  : "bg-red-100 text-red-800 border border-red-200"
+              }`}>
+                점수: {score}/100
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {showHint && (
         <div className="px-4 pb-4">
@@ -192,26 +537,57 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
       <div className="p-4 bg-background border-t border-border">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center justify-center gap-4">
-            {isListening && (
-              <Button
-                variant="outline"
-                size="lg"
-                className="w-16 h-16 rounded-full bg-destructive/10 border-destructive/30 hover:bg-destructive/20"
-                onClick={() => setIsListening(false)}
+            {isRecording && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0 }}
               >
-                <X className="w-6 h-6 text-destructive" />
-              </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-16 h-16 rounded-full bg-destructive/10 border-destructive/30 hover:bg-destructive/20"
+                  onClick={stopRecording}
+                >
+                  <X className="w-6 h-6 text-destructive" />
+                </Button>
+              </motion.div>
             )}
 
-            <Button
-              size="lg"
-              className={`w-20 h-20 rounded-full ${
-                isListening ? "bg-primary hover:bg-primary/90" : "bg-primary hover:bg-primary/90"
-              }`}
-              onClick={handleMicPress}
+            <motion.div
+              animate={{
+                scale: isRecording ? [1, 1.1, 1] : 1,
+              }}
+              transition={{
+                duration: 1,
+                repeat: isRecording ? Infinity : 0,
+              }}
             >
-              {isListening ? <ArrowUp className="w-8 h-8" /> : <Mic className="w-8 h-8" />}
-            </Button>
+              <Button
+                size="lg"
+                className={`w-20 h-20 rounded-full transition-all duration-300 ${
+                  isRecording
+                    ? "bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/25"
+                    : isProcessing
+                    ? "bg-yellow-500 hover:bg-yellow-600"
+                    : isAgentSpeaking
+                    ? "bg-blue-500 hover:bg-blue-600 shadow-lg shadow-blue-500/25"
+                    : "bg-primary hover:bg-primary/90"
+                }`}
+                onClick={handleMicPress}
+                disabled={isProcessing || isAgentSpeaking}
+              >
+                {isProcessing ? (
+                  <Loader2 className="w-8 h-8 animate-spin" />
+                ) : isAgentSpeaking ? (
+                  <Volume2 className="w-8 h-8" />
+                ) : isRecording ? (
+                  <ArrowUp className="w-8 h-8" />
+                ) : (
+                  <Mic className="w-8 h-8" />
+                )}
+              </Button>
+            </motion.div>
           </div>
         </div>
       </div>
