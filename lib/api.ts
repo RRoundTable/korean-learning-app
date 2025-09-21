@@ -74,12 +74,33 @@ export interface OpenAiTtsRequest {
 
 export class ApiClient {
   private baseUrl: string
+  private debugMode: boolean
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl
+    this.debugMode = process.env.NODE_ENV === 'development' && 
+                    process.env.NEXT_PUBLIC_DEBUG_MODE === 'true'
+  }
+
+  private logRequest(method: string, url: string, data?: any) {
+    if (this.debugMode) {
+      console.group(`🚀 API Request: ${method} ${url}`)
+      console.log('Request data:', data)
+      console.groupEnd()
+    }
+  }
+
+  private logResponse(method: string, url: string, response: any) {
+    if (this.debugMode) {
+      console.group(`📥 API Response: ${method} ${url}`)
+      console.log('Response data:', response)
+      console.groupEnd()
+    }
   }
 
   async stt(audioBlob: Blob, options?: { language?: string; prompt?: string }): Promise<SttResponse> {
+    this.logRequest('POST', '/api/stt', { options, audioSize: audioBlob.size })
+    
     const formData = new FormData()
     formData.append('file', audioBlob, 'audio.webm')
     
@@ -100,10 +121,14 @@ export class ApiClient {
       throw new Error(error.error || `STT failed with status ${response.status}`)
     }
 
-    return response.json()
+    const data = await response.json()
+    this.logResponse('POST', '/api/stt', data)
+    return data
   }
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
+    this.logRequest('POST', '/api/openai/chat', request)
+    
     const response = await fetch(`${this.baseUrl}/api/openai/chat`, {
       method: 'POST',
       headers: {
@@ -118,10 +143,14 @@ export class ApiClient {
       throw new Error(error.error || `Chat failed with status ${response.status}`)
     }
 
-    return response.json()
+    const data = await response.json()
+    this.logResponse('POST', '/api/openai/chat', data)
+    return data
   }
 
   async tts(request: TtsRequest): Promise<Blob> {
+    this.logRequest('POST', '/api/elevenlabs/text-to-speech', request)
+    
     const response = await fetch(`${this.baseUrl}/api/elevenlabs/text-to-speech`, {
       method: 'POST',
       headers: {
@@ -136,10 +165,14 @@ export class ApiClient {
       throw new Error(error.error || `TTS failed with status ${response.status}`)
     }
 
-    return response.blob()
+    const blob = await response.blob()
+    this.logResponse('POST', '/api/elevenlabs/text-to-speech', { blobSize: blob.size, type: blob.type })
+    return blob
   }
 
   async openaiTts(request: OpenAiTtsRequest): Promise<Blob> {
+    this.logRequest('POST', '/api/openai/text-to-speech', request)
+    
     const response = await fetch(`${this.baseUrl}/api/openai/text-to-speech`, {
       method: 'POST',
       headers: {
@@ -153,7 +186,9 @@ export class ApiClient {
       throw new Error(error.error || `OpenAI TTS failed with status ${response.status}`)
     }
 
-    return response.blob()
+    const blob = await response.blob()
+    this.logResponse('POST', '/api/openai/text-to-speech', { blobSize: blob.size, type: blob.type })
+    return blob
   }
 }
 

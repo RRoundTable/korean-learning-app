@@ -17,6 +17,9 @@ OPENAI_CHAT_MODEL=gpt-4o-mini
 # OpenAI TTS Model (optional, defaults to tts-1)
 OPENAI_TTS_MODEL=tts-1
 
+# Debug mode (optional, for development)
+NEXT_PUBLIC_DEBUG_MODE=true
+
 # Public API base URL (leave empty to use relative paths)
 NEXT_PUBLIC_API_BASE_URL=
 ```
@@ -41,3 +44,4 @@ The application should now work with:
 - ✅ STT (Speech-to-Text) using OpenAI Whisper
 - ✅ Chat using OpenAI GPT models
 - ✅ TTS (Text-to-Speech) using OpenAI TTS (primary) or ElevenLabs (optional)
+- ✅ Debug logging for API requests/responses (when NEXT_PUBLIC_DEBUG_MODE=true)

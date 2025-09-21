@@ -295,6 +295,184 @@ type UserState = { currentTaskId: string; currentTaskIndex: number; taskStatuses
 - 향후: VAD 필터링 추가
 
 ---
+
+## 2024-12-19: 버그 수정 및 개선 계획
+
+### 발견된 버그들
+
+1. **STT 완료 후 진행 상태 표시 문제**
+   - 문제: STT가 완료되어도 `isProcessing` 상태가 계속 true로 유지됨
+   - 원인: `processAudio` 함수에서 `setIsProcessing(false)`가 제대로 호출되지 않거나 예외 처리에서 누락
+   - 영향: 사용자가 다음 녹음을 시작할 수 없음
+
+2. **마이크 버튼 클릭 시 모든 메시지 버블에 "Recording" 표시**
+   - 문제: 녹음 시작 시 이전 사용자 메시지 버블들에도 녹음 상태가 표시됨
+   - 원인: `isRecording` 상태가 전역적으로 적용되어 모든 사용자 메시지에 영향을 줌
+   - 영향: UI 혼란, 사용자 경험 저하
+
+3. **디버깅을 위한 로그 모드 부재**
+   - 문제: 개발/디버깅 시 API 요청/응답을 콘솔에서 확인할 수 없음
+   - 원인: 로그 모드 설정 및 API 호출 로깅이 구현되지 않음
+   - 영향: 개발 및 디버깅 어려움
+
+### 수정 계획
+
+#### 1. STT 진행 상태 관리 개선
+
+**목표**: STT 완료 후 `isProcessing` 상태를 확실히 false로 설정
+
+**구현 방법**:
+```typescript
+// conversation-practice.tsx의 processAudio 함수 개선
+const processAudio = async (audioBlob: Blob) => {
+  setIsProcessing(true)
+  
+  try {
+    // STT 처리
+    const sttResponse = await apiClient.stt(audioBlob, { 
+      language: "ko",
+      prompt: "한국어 대화 연습" 
+    })
+    
+    // STT 완료 후 즉시 처리 상태 해제
+    setIsProcessing(false)
+    
+    // 나머지 처리 (Chat, TTS 등)
+    // ...
+  } catch (error) {
+    console.error("Error processing audio:", error)
+    setIsProcessing(false) // 에러 시에도 반드시 해제
+    alert(error instanceof Error ? error.message : "오디오 처리 중 오류가 발생했습니다.")
+  }
+  // finally 블록 제거 (try-catch에서 처리)
+}
+```
+
+**검증 방법**:
+- STT 완료 후 마이크 버튼이 즉시 활성화되는지 확인
+- 에러 발생 시에도 처리 상태가 해제되는지 확인
+
+#### 2. 메시지별 녹음 상태 관리
+
+**목표**: 현재 대기 중인 사용자 메시지에만 녹음 상태 표시
+
+**구현 방법**:
+```typescript
+// Message 인터페이스 확장
+interface Message {
+  id: string
+  role: "user" | "assistant"
+  text: string
+  translation?: string
+  isWaiting?: boolean
+  isCurrentlyRecording?: boolean // 새로 추가
+}
+
+// 녹음 상태 관리 개선
+const [currentlyRecordingMessageId, setCurrentlyRecordingMessageId] = useState<string | null>(null)
+
+// startRecording 함수 수정
+const startRecording = async () => {
+  // 현재 대기 중인 메시지 ID 찾기
+  const waitingMessage = messages.find(msg => msg.role === "user" && msg.isWaiting)
+  if (waitingMessage) {
+    setCurrentlyRecordingMessageId(waitingMessage.id)
+  }
+  
+  // 기존 녹음 로직...
+}
+
+// stopRecording 함수 수정
+const stopRecording = () => {
+  setCurrentlyRecordingMessageId(null)
+  // 기존 정지 로직...
+}
+
+// 메시지 렌더링에서 조건부 표시
+{message.isWaiting && currentlyRecordingMessageId === message.id && isRecording && (
+  // 녹음 상태 표시
+)}
+```
+
+**검증 방법**:
+- 녹음 시작 시 현재 메시지에만 녹음 상태가 표시되는지 확인
+- 이전 메시지들은 영향받지 않는지 확인
+
+#### 3. 디버그 로그 모드 구현
+
+**목표**: 개발 환경에서 API 요청/응답을 콘솔에 출력
+
+**구현 방법**:
+```typescript
+// lib/api.ts에 로그 모드 추가
+class ApiClient {
+  private baseUrl: string
+  private debugMode: boolean
+
+  constructor(baseUrl: string = API_BASE_URL) {
+    this.baseUrl = baseUrl
+    this.debugMode = process.env.NODE_ENV === 'development' && 
+                    process.env.NEXT_PUBLIC_DEBUG_MODE === 'true'
+  }
+
+  private logRequest(method: string, url: string, data?: any) {
+    if (this.debugMode) {
+      console.group(`🚀 API Request: ${method} ${url}`)
+      console.log('Request data:', data)
+      console.groupEnd()
+    }
+  }
+
+  private logResponse(method: string, url: string, response: any) {
+    if (this.debugMode) {
+      console.group(`📥 API Response: ${method} ${url}`)
+      console.log('Response data:', response)
+      console.groupEnd()
+    }
+  }
+
+  async stt(audioBlob: Blob, options?: { language?: string; prompt?: string }): Promise<SttResponse> {
+    this.logRequest('POST', '/api/stt', { options, audioSize: audioBlob.size })
+    
+    const response = await fetch(`${this.baseUrl}/api/stt`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    const data = await response.json()
+    this.logResponse('POST', '/api/stt', data)
+    
+    return data
+  }
+
+  // chat, tts 메서드에도 동일하게 적용
+}
+```
+
+**환경 변수 설정**:
+```bash
+# .env.local에 추가
+NEXT_PUBLIC_DEBUG_MODE=true
+```
+
+**검증 방법**:
+- 개발 환경에서 브라우저 콘솔에 API 요청/응답이 출력되는지 확인
+- 프로덕션 환경에서는 로그가 출력되지 않는지 확인
+
+### 우선순위
+
+1. **높음**: STT 진행 상태 관리 (사용자 경험에 직접적 영향)
+2. **중간**: 메시지별 녹음 상태 관리 (UI 개선)
+3. **낮음**: 디버그 로그 모드 (개발 편의성)
+
+### 예상 소요 시간
+
+- STT 진행 상태 관리: 30분
+- 메시지별 녹음 상태 관리: 1시간
+- 디버그 로그 모드: 45분
+- **총 예상 시간**: 2시간 15분
+
+---
 ## Reference
 
 korean-ai-tutor/lib/audio를 참고해달라. 관련된 API도 참고가 필요하다.

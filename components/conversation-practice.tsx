@@ -19,6 +19,7 @@ interface Message {
   text: string
   translation?: string
   isWaiting?: boolean
+  isCurrentlyRecording?: boolean
 }
 
 export function ConversationPractice({ scenario, onBack }: ConversationPracticeProps) {
@@ -46,6 +47,7 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
   const [recordingDuration, setRecordingDuration] = useState(0)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [score, setScore] = useState<number | null>(null)
+  const [currentlyRecordingMessageId, setCurrentlyRecordingMessageId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "initial",
@@ -85,6 +87,14 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
 
   const startRecording = async () => {
     try {
+      // 현재 대기 중인 메시지 ID 찾기
+      const waitingMessage = messages.find(msg => msg.role === "user" && msg.isWaiting)
+      console.log('Found waiting message:', waitingMessage)
+      if (waitingMessage) {
+        setCurrentlyRecordingMessageId(waitingMessage.id)
+        console.log('Set currentlyRecordingMessageId to:', waitingMessage.id)
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: "audio/webm;codecs=opus",
@@ -130,6 +140,7 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
     }
     setIsRecording(false)
     setListening(false)
+    setCurrentlyRecordingMessageId(null)
   }
 
   const processAudio = async (audioBlob: Blob) => {
@@ -147,12 +158,25 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
         throw new Error("음성을 인식할 수 없습니다. 다시 시도해주세요.")
       }
 
-      // Update user message
-      setMessages(prev => prev.map(msg => 
-        msg.id === "user-waiting" || (msg.role === "user" && msg.isWaiting)
-          ? { ...msg, text: userText, isWaiting: false }
-          : msg
-      ))
+      // STT 완료 후 즉시 처리 상태 해제
+      setIsProcessing(false)
+
+      // Update user message - find and update the waiting user message
+      console.log('Updating message:', { currentlyRecordingMessageId, userText })
+      setMessages(prev => {
+        let messageUpdated = false
+        const updatedMessages = prev.map(msg => {
+          // Update the first waiting user message (only once)
+          if (!messageUpdated && msg.role === "user" && msg.isWaiting) {
+            console.log('Found message to update:', msg.id)
+            messageUpdated = true
+            return { ...msg, text: userText, isWaiting: false }
+          }
+          return msg
+        })
+        console.log('Updated messages:', updatedMessages)
+        return updatedMessages
+      })
 
       // Step 2: Get LLM chat response with scenario context
       const memoryHistory = messages
@@ -266,9 +290,8 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
       }
     } catch (error) {
       console.error("Error processing audio:", error)
+      setIsProcessing(false) // 에러 시에도 반드시 해제
       alert(error instanceof Error ? error.message : "오디오 처리 중 오류가 발생했습니다.")
-    } finally {
-      setIsProcessing(false)
     }
   }
 
@@ -430,7 +453,7 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
                               </Button>
                             </div>
                           )}
-                          {isRecording && (
+                          {isRecording && currentlyRecordingMessageId === message.id && (
                             <>
                               <span className="text-sm opacity-70 mb-2 block">
                                 Recording... {Math.floor(recordingDuration / 60)}:{(recordingDuration % 60).toString().padStart(2, '0')}
@@ -446,6 +469,9 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
                           )}
                           {message.text && !message.isWaiting && (
                             <p className="font-medium">{message.text}</p>
+                          )}
+                          {message.text && message.isWaiting && isProcessing && (
+                            <p className="font-medium opacity-70">{message.text}</p>
                           )}
                         </div>
                       )}
