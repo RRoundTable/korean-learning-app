@@ -129,7 +129,12 @@ JSON 응답 형식:
     const requestBody: any = {
       model,
       messages,
-      temperature: 0.7,
+    }
+
+    // Only add temperature for models that support it
+    // Some models like gpt-4o-mini support custom temperature
+    if (model.includes("gpt-4") || model.includes("gpt-3.5")) {
+      requestBody.temperature = 0.7
     }
 
     // Use JSON mode for conversation practice

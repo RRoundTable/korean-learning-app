@@ -38,7 +38,7 @@ conversation-practice는 유저가 한국어 말하기 연습을 할 수 있는 
   - 전송/수신 흐름 제어: 녹음 → STT → LLM(JSON) → TTS → 재생
   - 상태: 시나리오/작업 진행도, 녹음 상태, 대화 히스토리, 재생 상태
 - 서버(`korean-ai-tutor` 재사용)
-  - STT: `/api/stt` (OpenAI Transcriptions 프록시)
+  - STT: `/api/openai/speech-to-text` (OpenAI Transcriptions 프록시)
   - Chat: `/api/openai/chat` (LLM 호출) — JSON 응답 강제(아래 계획에 따라 업데이트)
   - TTS: `/api/elevenlabs/text-to-speech` 또는 `/api/openai/text-to-speech`
   - 모든 API는 zod로 입력/출력 스키마 검증
@@ -81,7 +81,7 @@ conversation-practice는 유저가 한국어 말하기 연습을 할 수 있는 
 ## 6) API 계약 (서버는 `korean-ai-tutor` 사용)
 
 ### STT
-- `POST /api/stt`
+- `POST /api/openai/speech-to-text`
 - 요청: multipart/form-data
   - `file`: audio/wav (단일 세그먼트)
   - `language?`: `ko`
@@ -211,7 +211,7 @@ zod(서버) 기준 제안 스키마:
   - VAD 시작/정지, 레벨 미터, 세그먼트 생성
   - DoD: 10초 이내 발화 → 최소 1개 세그먼트 생성 및 UI 목록 표시
 - M2: STT 연동
-  - `/api/stt`로 세그먼트 업로드 → 텍스트 변환/병합
+  - `/api/openai/speech-to-text`로 세그먼트 업로드 → 텍스트 변환/병합
   - DoD: 2개 이상 세그먼트 병합 텍스트가 화면에 표시
 - M3: Chat(JSON) 응답
   - Chat 라우트 JSON 강제, zod 파싱, `TurnResult` 수신
@@ -432,15 +432,15 @@ class ApiClient {
   }
 
   async stt(audioBlob: Blob, options?: { language?: string; prompt?: string }): Promise<SttResponse> {
-    this.logRequest('POST', '/api/stt', { options, audioSize: audioBlob.size })
-    
-    const response = await fetch(`${this.baseUrl}/api/stt`, {
+    this.logRequest('POST', '/api/openai/speech-to-text', { options, audioSize: audioBlob.size })
+
+    const response = await fetch(`${this.baseUrl}/api/openai/speech-to-text`, {
       method: 'POST',
       body: formData,
     })
 
     const data = await response.json()
-    this.logResponse('POST', '/api/stt', data)
+    this.logResponse('POST', '/api/openai/speech-to-text', data)
     
     return data
   }

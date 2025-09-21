@@ -99,7 +99,7 @@ export class ApiClient {
   }
 
   async stt(audioBlob: Blob, options?: { language?: string; prompt?: string }): Promise<SttResponse> {
-    this.logRequest('POST', '/api/stt', { options, audioSize: audioBlob.size })
+    this.logRequest('POST', '/api/openai/speech-to-text', { options, audioSize: audioBlob.size })
     
     const formData = new FormData()
     formData.append('file', audioBlob, 'audio.webm')
@@ -111,7 +111,7 @@ export class ApiClient {
       formData.append('prompt', options.prompt)
     }
 
-    const response = await fetch(`${this.baseUrl}/api/stt`, {
+    const response = await fetch(`${this.baseUrl}/api/openai/speech-to-text`, {
       method: 'POST',
       body: formData,
     })
@@ -122,7 +122,7 @@ export class ApiClient {
     }
 
     const data = await response.json()
-    this.logResponse('POST', '/api/stt', data)
+    this.logResponse('POST', '/api/openai/speech-to-text', data)
     return data
   }
 

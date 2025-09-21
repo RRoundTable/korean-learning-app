@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Call OpenAI Audio Speech API
-    const model = process.env.OPENAI_TTS_MODEL || "tts-1"
+    const model = process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts"
     const openaiResp = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
       headers: {
