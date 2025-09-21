@@ -8,8 +8,6 @@ import { Users, Trophy, Zap, Home, Menu, Search, Bell } from "lucide-react"
 import { ScenarioCard } from "@/components/scenario-card"
 import { ConversationPractice } from "@/components/conversation-practice"
 import { Phrasebook } from "@/components/phrasebook"
-import { ConversationProvider } from "@/contexts/ConversationContext"
-import { coffeeShopScenario } from "@/lib/scenarios"
 import Link from "next/link"
 
 export default function KoreanLearningApp() {
@@ -78,11 +76,7 @@ export default function KoreanLearningApp() {
   }
 
   if (currentView === "conversation") {
-    return (
-      <ConversationProvider>
-        <ConversationPractice scenario={coffeeShopScenario} onBack={() => setCurrentView("scenario")} />
-      </ConversationProvider>
-    )
+    return <ConversationPractice scenario={selectedScenario} onBack={() => setCurrentView("scenario")} />
   }
 
   if (currentView === "phrasebook") {

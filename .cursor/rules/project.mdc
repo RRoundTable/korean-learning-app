@@ -29,5 +29,4 @@ Run the migration to add the new fields:
 pnpm run db:migrate:dev
 ```
 
-Write down long term planning and your todo list and record the status of your work in plan.md.
-When planning, write it so that each step is verified and moved on. Verification must be completed before moving on to the next step.
+Write down long term planning  to Planning.md
