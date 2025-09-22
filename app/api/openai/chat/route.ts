@@ -11,6 +11,8 @@ export const ChatInputSchema = z.object({
   scenarioContext: z.object({
     scenarioId: z.union([z.string(), z.number()]),
     title: z.string(),
+    role: z.string().optional(),
+    userRole: z.string().optional(),
     constraints: z.record(z.any()).optional(),
     tasks: z.array(z.object({
       id: z.string(),
@@ -84,30 +86,43 @@ export async function POST(request: NextRequest) {
     let messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = []
     
     // Enhanced system prompt for conversation practice
-    let finalSystemPrompt = systemPrompt
+    let BasicSystemPrompt = systemPrompt
+    let scenarioSystemMessage: string | undefined
     if (scenarioContext && currentTask) {
-      finalSystemPrompt = `너는 한국어 회화 튜터다. 사용자가 제시된 시나리오 목표를 달성하도록 단계적으로 안내하라.
+      BasicSystemPrompt = `너는 지금 한국어로 역할극을 하고 있다.
+너의 역할은 사용자와 함께 역할극을 진행하는 것이다.
+사용자는 한국어를 공부하는 외국인이다. 외국인이 한국어를 사용하여 너와 함께 역할극을 진행할 것이다.
+역할극의 목표는 사용자가 한국어를 사용해서 원하는 목적을 달성하는 것이다.
 
-시나리오: ${scenarioContext.title}
-현재 과제: ${currentTask.ko}
-진행도: ${progress?.completed || 0}/${progress?.total || 3}
+사용자는 정해진 목표가 있지만, 부족한 정보가 있고, 너는 사용자가 상대방 역할을 하며 사용자가 올바른 한국어로 말했을때 부족한 정보에 대한 힌트를 제공할 것이다.
+예를 들어, 너의 역할이 카페 알바생이고, 사용자가 고객이라면, 너는 카페의 메뉴 구성 및 가격을 알고 있지만, 사용자는 모른다.
+이때 사용자는 올바른 한국어를 구성하여 자신이 원하는 음료를 시켜야한다.
 
-간결하고 자연스러운 한국어로 답하되, 학습 피드백(틀린 표현, 더 좋은 표현)을 제공하라. 
-반드시 JSON 스키마에 맞게만 답하라. 한국어로 답변하되, 필요 시 짧은 영어 설명을 괄호로 덧붙일 수 있다.
+agentReply는 역할극 상대방의 발화(한국어)이다. 절대 선생님처럼 말하지마. 역할극에 몰입해.
 
 JSON 응답 형식:
 {
-  "agentReply": "에이전트 발화(한국어)",
+  "agentReply": "역할극 상대방의 발화(한국어)",
   "success": boolean, // 현재 task 성공 여부
   "nextTaskId": "다음 task 식별자 또는 null",
   "feedback": "교정/칭찬/힌트 요약",
   "score": 0-100 점수,
   "hints": ["추가 힌트 배열"]
 }`
+
+      scenarioSystemMessage = `
+시나리오 제목: ${scenarioContext.title}
+달성해야하는 작업들: ${scenarioContext.tasks.map((task: any) => task.ko).join(", ")}
+역할: ${scenarioContext.role}
+상대방 역할: ${scenarioContext.userRole}
+`
     }
     
-    if (finalSystemPrompt && finalSystemPrompt.trim().length > 0) {
-      messages.push({ role: "system", content: finalSystemPrompt })
+    if (BasicSystemPrompt && BasicSystemPrompt.trim().length > 0) {
+      messages.push({ role: "system", content: BasicSystemPrompt })
+    }
+    if (scenarioSystemMessage && scenarioSystemMessage.trim().length > 0) {
+      messages.push({ role: "system", content: scenarioSystemMessage })
     }
 
     // Use client memory only

@@ -23,6 +23,8 @@ export interface ChatRequest {
   scenarioContext?: {
     scenarioId: string | number
     title: string
+    role?: string
+    userRole?: string
     constraints?: Record<string, any>
     tasks: Array<{ id: string; ko: string; en?: string }>
   }

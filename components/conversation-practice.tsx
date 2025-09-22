@@ -189,6 +189,8 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
         scenarioContext: {
           scenarioId: scenario.id,
           title: scenario.title,
+          role: scenario.role,
+          userRole: scenario.userRole,
           constraints: scenario.constraints || {},
           tasks: scenario.tasks?.map((task: any, idx: number) => ({
             id: `t-${idx}`,
