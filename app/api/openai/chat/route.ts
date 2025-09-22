@@ -133,10 +133,14 @@ JSON 응답 형식:
     }
 
     // Avoid duplicating the most recent user turn
+    const expandedUserMessage = `
+    currentTask: ${currentTask?.ko}
+    userMessage: ${userMessage}
+    `
     const last = messages[messages.length - 1]
     const shouldAppend = !last || last.role !== "user" || (String(last.content || "").trim() !== String(userMessage).trim())
     if (shouldAppend) {
-      messages.push({ role: "user", content: userMessage })
+      messages.push({ role: "user", content: expandedUserMessage })
     }
 
     // Call OpenAI Chat Completions API
@@ -146,15 +150,14 @@ JSON 응답 형식:
       messages,
     }
 
-    // Only add temperature for models that support it
-    // Some models like gpt-4o-mini support custom temperature
-    if (model.includes("gpt-4") || model.includes("gpt-3.5")) {
-      requestBody.temperature = 0.7
-    }
-
     // Use JSON mode for conversation practice
     if (scenarioContext && currentTask) {
       requestBody.response_format = { type: "json_object" }
+    }
+
+    // Debug: log outbound request body
+    if (process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
+      console.log("[DEBUG] OpenAI Chat requestBody:", requestBody)
     }
 
     const openaiResp = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -168,10 +171,24 @@ JSON 응답 형식:
 
     if (!openaiResp.ok) {
       const errText = await openaiResp.text().catch(() => "")
+      if (process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
+        console.error("[DEBUG] OpenAI Chat error response:", {
+          status: openaiResp.status,
+          headers: Object.fromEntries(openaiResp.headers),
+          body: errText,
+        })
+      }
       return NextResponse.json({ error: `LLM provider error: ${openaiResp.status} ${errText}` }, { status: 502 })
     }
 
     const data = (await openaiResp.json()) as any
+    if (process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEBUG_MODE === "true") {
+      console.log("[DEBUG] OpenAI Chat success response:", {
+        status: openaiResp.status,
+        headers: Object.fromEntries(openaiResp.headers),
+        data,
+      })
+    }
     const assistantText: string = data?.choices?.[0]?.message?.content ?? ""
     const usage = data?.usage
       ? {
