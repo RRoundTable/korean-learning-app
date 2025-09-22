@@ -72,6 +72,10 @@ export interface OpenAiTtsRequest {
   sampleRate?: number
 }
 
+export interface OpenAiTtsStreamOptions extends OpenAiTtsRequest {
+  sessionId: string
+}
+
 export class ApiClient {
   private baseUrl: string
   private debugMode: boolean
@@ -170,25 +174,30 @@ export class ApiClient {
     return blob
   }
 
-  async openaiTts(request: OpenAiTtsRequest): Promise<Blob> {
-    this.logRequest('POST', '/api/openai/text-to-speech', request)
-    
-    const response = await fetch(`${this.baseUrl}/api/openai/text-to-speech`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-    })
+  // Streaming-friendly: return a URL that the <audio> element can progressively play
+  openaiTtsStreamUrl(options: OpenAiTtsStreamOptions): string {
+    const params = new URLSearchParams()
+    params.set('sessionId', options.sessionId)
+    params.set('text', options.text)
+    if (options.voice) params.set('voice', options.voice)
+    if (options.format) params.set('format', options.format)
+    if (options.sampleRate != null) params.set('sampleRate', String(options.sampleRate))
+    const url = `${this.baseUrl}/api/openai/text-to-speech?${params.toString()}`
+    this.logRequest('GET', '/api/openai/text-to-speech', Object.fromEntries(params))
+    return url
+  }
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'OpenAI TTS request failed' }))
-      throw new Error(error.error || `OpenAI TTS failed with status ${response.status}`)
+  // Low-level streaming: fetch and expose the ReadableStream and content type
+  async openaiTtsStream(options: OpenAiTtsStreamOptions): Promise<{ stream: ReadableStream<Uint8Array>, contentType: string }> {
+    const url = this.openaiTtsStreamUrl(options)
+    const response = await fetch(url)
+    if (!response.ok || !response.body) {
+      const errorText = await response.text().catch(() => '')
+      throw new Error(errorText || `OpenAI TTS stream failed with status ${response.status}`)
     }
-
-    const blob = await response.blob()
-    this.logResponse('POST', '/api/openai/text-to-speech', { blobSize: blob.size, type: blob.type })
-    return blob
+    const contentType = response.headers.get('Content-Type') || 'audio/mpeg'
+    this.logResponse('GET', '/api/openai/text-to-speech', { contentType })
+    return { stream: response.body as ReadableStream<Uint8Array>, contentType }
   }
 }
 

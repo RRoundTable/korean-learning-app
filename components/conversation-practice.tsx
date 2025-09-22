@@ -228,26 +228,22 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
       // Step 3: Convert assistant response to speech
       try {
         setAgentSpeaking(true)
-        // Use OpenAI TTS (faster and more reliable for Korean)
-        const audioBlob = await apiClient.openaiTts({
+        // Streaming playback via GET endpoint (progressive)
+        const audioUrl = apiClient.openaiTtsStreamUrl({
+          sessionId,
           text: assistantText,
-          voice: "nova", // Good for Korean
+          voice: "nova",
           format: "mp3",
         })
-
-        // Play the audio
-        const audioUrl = URL.createObjectURL(audioBlob)
         const audio = new Audio(audioUrl)
         audioRef.current = audio
 
         audio.onended = () => {
           setAgentSpeaking(false)
-          URL.revokeObjectURL(audioUrl)
         }
 
         audio.onerror = () => {
           setAgentSpeaking(false)
-          URL.revokeObjectURL(audioUrl)
           console.error("Audio playback failed")
         }
 
