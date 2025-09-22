@@ -186,7 +186,7 @@ JSON 응답 형식:
       console.log("[DEBUG] OpenAI Chat success response:", {
         status: openaiResp.status,
         headers: Object.fromEntries(openaiResp.headers),
-        data,
+        data: data?.choices?.[0]?.message?.content,
       })
     }
     const assistantText: string = data?.choices?.[0]?.message?.content ?? ""
