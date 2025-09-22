@@ -154,6 +154,44 @@ export class ApiClient {
     return data
   }
 
+  // Assistant text (non-streaming). Returns { text: string }
+  async chatAssistant(request: ChatRequest): Promise<{ text: string }> {
+    const url = `${this.baseUrl}/api/openai/chat?target=assistant`
+    this.logRequest('POST', url, request)
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      credentials: 'include',
+    })
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: 'Assistant request failed' }))
+      throw new Error(err.error || `Assistant failed with status ${response.status}`)
+    }
+    const data = await response.json()
+    this.logResponse('POST', '/api/openai/chat?target=assistant', data)
+    return data as { text: string }
+  }
+
+  // Fetch metadata-only JSON (TurnResult shape)
+  async chatMetadata(request: ChatRequest): Promise<TurnResult> {
+    const url = `${this.baseUrl}/api/openai/chat?target=metadata`
+    this.logRequest('POST', url, request)
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      credentials: 'include',
+    })
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: 'Metadata request failed' }))
+      throw new Error(err.error || `Metadata failed with status ${response.status}`)
+    }
+    const data = await response.json()
+    this.logResponse('POST', '/api/openai/chat?target=metadata', data)
+    return data as TurnResult
+  }
+
   async tts(request: TtsRequest): Promise<Blob> {
     this.logRequest('POST', '/api/elevenlabs/text-to-speech', request)
     

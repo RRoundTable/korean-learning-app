@@ -178,12 +178,12 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
         return updatedMessages
       })
 
-      // Step 2: Get LLM chat response with scenario context
+      // Step 2: Prepare shared conversation snapshot
       const memoryHistory = messages
         .filter(msg => !msg.isWaiting && msg.text)
         .map(msg => ({ role: msg.role, text: msg.text }))
-      
-      const chatResponse = await apiClient.chat({
+
+      const chatPayload = {
         sessionId,
         userMessage: userText,
         scenarioContext: {
@@ -209,54 +209,65 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
           en: currentTask.en,
         } : undefined,
         memoryHistory,
-      })
-
-      const turnResult = chatResponse.turnResult
-      const assistantText = turnResult?.agentReply || chatResponse.text
-      
-      // Add assistant message and new user waiting message
-      setMessages(prev => prev.concat([{
-        id: `assistant-${Date.now()}`,
-        role: "assistant",
-        text: assistantText,
-        translation: undefined, // TODO: Add translation support
-      }, {
-        id: `user-waiting-${Date.now()}`,
-        role: "user",
-        text: "",
-        isWaiting: true,
-      }]))
-
-      // Step 3: Convert assistant response to speech
-      try {
-        setAgentSpeaking(true)
-        // Streaming playback via GET endpoint (progressive)
-        const audioUrl = apiClient.openaiTtsStreamUrl({
-          sessionId,
-          text: assistantText,
-          voice: "nova",
-          format: "mp3",
-        })
-        const audio = new Audio(audioUrl)
-        audioRef.current = audio
-
-        audio.onended = () => {
-          setAgentSpeaking(false)
-        }
-
-        audio.onerror = () => {
-          setAgentSpeaking(false)
-          console.error("Audio playback failed")
-        }
-
-        await audio.play()
-      } catch (ttsError) {
-        console.error("TTS failed:", ttsError)
-        setAgentSpeaking(false)
-        // Continue without audio
       }
 
-      // Handle task progress based on LLM response
+      // Step 3: Fire both assistant(non-stream) and metadata in parallel
+      const assistantPromise = apiClient.chatAssistant(chatPayload)
+      const metadataPromise = apiClient.chatMetadata(chatPayload)
+
+      // When assistant arrives, render and TTS by sentence
+      ;(async () => {
+        try {
+          const { text } = await assistantPromise
+          const sentences = text
+            .split(/(?<=[.!?]|[가-힣][다요])\s+/g)
+            .map(s => s.trim())
+            .filter(Boolean)
+
+          let first = true
+          setAgentSpeaking(true)
+          for (const sentence of sentences) {
+            if (first) {
+              setMessages(prev => prev.concat([{ id: `assistant-${Date.now()}`, role: "assistant", text: sentence }]))
+              first = false
+            } else {
+              setMessages(prev => prev.map(m => m.role === "assistant" ? { ...m, text: m.text + (m.text ? " " : "") + sentence } : m))
+            }
+
+            try {
+              const audioUrl = apiClient.openaiTtsStreamUrl({
+                sessionId,
+                text: sentence,
+                voice: "nova",
+                format: "mp3",
+              })
+              const audio = new Audio(audioUrl)
+              audioRef.current = audio
+              await new Promise<void>((resolve) => {
+                audio.onended = () => resolve()
+                audio.onerror = () => resolve()
+                audio.play().catch(() => resolve())
+              })
+            } catch {}
+          }
+
+          setAgentSpeaking(false)
+          setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
+        } catch (e) {
+          console.error("Assistant error", e)
+          setAgentSpeaking(false)
+        }
+      })()
+
+      // Handle metadata when it arrives
+      let turnResult: { success?: boolean; nextTaskId?: string | null; feedback?: string; score?: number; hints?: string[] } | undefined
+      try {
+        turnResult = await metadataPromise
+      } catch (e) {
+        turnResult = undefined
+      }
+
+      // Handle task progress based on metadata
       if (turnResult?.success) {
         markCurrentTaskSuccess()
         setTimeout(() => {
