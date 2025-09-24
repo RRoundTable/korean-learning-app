@@ -8,7 +8,6 @@ export interface SttResponse {
 }
 
 export interface TurnResult {
-  agentReply: string
   success: boolean
   nextTaskId?: string | null
   feedback?: string

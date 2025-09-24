@@ -43,7 +43,6 @@ export type ChatInput = z.infer<typeof ChatInputSchema>
 
 // TurnResult schema for conversation practice
 export const TurnResultSchema = z.object({
-  agentReply: z.string(),
   success: z.boolean(),
   nextTaskId: z.string().nullable().optional(),
   feedback: z.string().optional(),
