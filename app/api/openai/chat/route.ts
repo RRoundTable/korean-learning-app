@@ -131,9 +131,10 @@ export async function POST(request: NextRequest) {
     userMessage: ${userMessage}
     `
     const last = messages[messages.length - 1]
-    const shouldAppend = !last || last.role !== "user" || (String(last.content || "").trim() !== String(userMessage).trim())
+    const userContent = target === "metadata" ? expandedUserMessage : String(userMessage)
+    const shouldAppend = !last || last.role !== "user" || (String(last.content || "").trim() !== String(userContent).trim())
     if (shouldAppend) {
-      messages.push({ role: "user", content: expandedUserMessage })
+      messages.push({ role: "user", content: userContent })
     }
 
     const model = process.env.OPENAI_CHAT_MODEL || "gpt-4.1-nano" // gpt-5-nano는 느리다
