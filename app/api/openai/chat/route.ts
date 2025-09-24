@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
       messages.push({ role: "user", content: expandedUserMessage })
     }
 
-    const model = process.env.OPENAI_CHAT_MODEL || "gpt-5-nano"
+    const model = process.env.OPENAI_CHAT_MODEL || "gpt-4.1-nano" // gpt-5-nano는 느리다
     const requestBodyBase: any = { model, messages }
 
     // Debug: log outbound request body
