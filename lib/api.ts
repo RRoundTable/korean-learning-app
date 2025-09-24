@@ -131,31 +131,11 @@ export class ApiClient {
     return data
   }
 
-  async chat(request: ChatRequest): Promise<ChatResponse> {
-    this.logRequest('POST', '/api/openai/chat', request)
-    
-    const response = await fetch(`${this.baseUrl}/api/openai/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-      credentials: 'include', // Include cookies for auth
-    })
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Chat request failed' }))
-      throw new Error(error.error || `Chat failed with status ${response.status}`)
-    }
-
-    const data = await response.json()
-    this.logResponse('POST', '/api/openai/chat', data)
-    return data
-  }
+  // Deprecated chat() removed. Use chatAssistant() and chatMetadata() instead.
 
   // Assistant text (non-streaming). Returns { text: string }
   async chatAssistant(request: ChatRequest): Promise<{ text: string }> {
-    const url = `${this.baseUrl}/api/openai/chat?target=assistant`
+    const url = `${this.baseUrl}/api/openai/chat/assistant`
     this.logRequest('POST', url, request)
     const response = await fetch(url, {
       method: 'POST',
@@ -168,13 +148,13 @@ export class ApiClient {
       throw new Error(err.error || `Assistant failed with status ${response.status}`)
     }
     const data = await response.json()
-    this.logResponse('POST', '/api/openai/chat?target=assistant', data)
+    this.logResponse('POST', '/api/openai/chat/assistant', data)
     return data as { text: string }
   }
 
   // Fetch metadata-only JSON (TurnResult shape)
   async chatMetadata(request: ChatRequest): Promise<TurnResult> {
-    const url = `${this.baseUrl}/api/openai/chat?target=metadata`
+    const url = `${this.baseUrl}/api/openai/chat/metadata`
     this.logRequest('POST', url, request)
     const response = await fetch(url, {
       method: 'POST',
@@ -187,7 +167,7 @@ export class ApiClient {
       throw new Error(err.error || `Metadata failed with status ${response.status}`)
     }
     const data = await response.json()
-    this.logResponse('POST', '/api/openai/chat?target=metadata', data)
+    this.logResponse('POST', '/api/openai/chat/metadata', data)
     return data as TurnResult
   }
 
