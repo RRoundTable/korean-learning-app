@@ -219,37 +219,26 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
       ;(async () => {
         try {
           const { text } = await assistantPromise
-          const sentences = text
-            .split(/(?<=[.!?]|[가-힣][다요])\s+/g)
-            .map(s => s.trim())
-            .filter(Boolean)
-
-          let first = true
+          // Display full assistant text at once
           setAgentSpeaking(true)
-          for (const sentence of sentences) {
-            if (first) {
-              setMessages(prev => prev.concat([{ id: `assistant-${Date.now()}`, role: "assistant", text: sentence }]))
-              first = false
-            } else {
-              setMessages(prev => prev.map(m => m.role === "assistant" ? { ...m, text: m.text + (m.text ? " " : "") + sentence } : m))
-            }
+          setMessages(prev => prev.concat([{ id: `assistant-${Date.now()}`, role: "assistant", text }]))
 
-            try {
-              const audioUrl = apiClient.openaiTtsStreamUrl({
-                sessionId,
-                text: sentence,
-                voice: "nova",
-                format: "mp3",
-              })
-              const audio = new Audio(audioUrl)
-              audioRef.current = audio
-              await new Promise<void>((resolve) => {
-                audio.onended = () => resolve()
-                audio.onerror = () => resolve()
-                audio.play().catch(() => resolve())
-              })
-            } catch {}
-          }
+          // Stream TTS for the entire text as a single audio stream
+          try {
+            const audioUrl = apiClient.openaiTtsStreamUrl({
+              sessionId,
+              text,
+              voice: "nova",
+              format: "mp3",
+            })
+            const audio = new Audio(audioUrl)
+            audioRef.current = audio
+            await new Promise<void>((resolve) => {
+              audio.onended = () => resolve()
+              audio.onerror = () => resolve()
+              audio.play().catch(() => resolve())
+            })
+          } catch {}
 
           setAgentSpeaking(false)
           setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
