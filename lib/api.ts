@@ -233,8 +233,44 @@ export class ApiClient {
     return url
   }
 
+  // Fetch once and cache as Blob object URL to avoid repeat API calls
+  async getOrCreateTtsObjectUrl(text: string, options: Omit<OpenAiTtsStreamOptions, 'text'>): Promise<string> {
+    const cacheKey = `blob|${text}|${options.sessionId}|${options.voice || 'nova'}|${options.format || 'mp3'}`
+    const cached = this.audioCache.get(cacheKey)
+    if (cached) return cached
+
+    const { stream, contentType } = await this.openaiTtsStream({ ...options, text })
+
+    // Read the stream into a Blob
+    const reader = (stream as ReadableStream<Uint8Array>).getReader()
+    const chunks: Uint8Array[] = []
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (value) chunks.push(value)
+    }
+    const totalLength = chunks.reduce((acc, c) => acc + c.length, 0)
+    const merged = new Uint8Array(totalLength)
+    let offset = 0
+    for (const c of chunks) {
+      merged.set(c, offset)
+      offset += c.length
+    }
+    const blob = new Blob([merged], { type: contentType })
+    const objectUrl = URL.createObjectURL(blob)
+    this.audioCache.set(cacheKey, objectUrl)
+    return objectUrl
+  }
+
   // Clear audio cache (call on component unmount)
   clearAudioCache(): void {
+    // Revoke any object URLs before clearing
+    for (const [key, value] of this.audioCache.entries()) {
+      if (key.startsWith('blob|') && value.startsWith('blob:')) {
+        try { URL.revokeObjectURL(value) } catch {}
+      }
+    }
     this.audioCache.clear()
   }
 }

@@ -331,14 +331,13 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
     
     try {
       setIsHintPlaying(true)
-      
-      // Get cached TTS URL or generate new one
-      const audioUrl = apiClient.getCachedTtsUrl(hint, {
+      // Fetch once and cache as Blob object URL
+      const audioUrl = await apiClient.getOrCreateTtsObjectUrl(hint, {
         sessionId,
         voice: "nova",
         format: "mp3",
       })
-      
+
       const audio = new Audio(audioUrl)
       hintAudioRef.current = audio
       
