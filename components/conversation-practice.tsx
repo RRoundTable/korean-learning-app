@@ -234,9 +234,8 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
 
           // Stream TTS for the entire text as a single audio stream
           try {
-            const audioUrl = apiClient.openaiTtsStreamUrl({
+            const audioUrl = await apiClient.getOrCreateTtsObjectUrl(text, {
               sessionId,
-              text,
               voice: "nova",
               format: "mp3",
             })
@@ -465,7 +464,22 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
                             </motion.p>
                           )}
                           <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="sm" className="p-1.5 h-auto">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="p-1.5 h-auto"
+                              onClick={async () => {
+                                try {
+                                  const audioUrl = await apiClient.getOrCreateTtsObjectUrl(message.text, {
+                                    sessionId,
+                                    voice: "nova",
+                                    format: "mp3",
+                                  })
+                                  const audio = new Audio(audioUrl)
+                                  audio.play().catch(() => {})
+                                } catch {}
+                              }}
+                            >
                               <Volume2 className="w-4 h-4" />
                             </Button>
                             <Button variant="ghost" size="sm" className="p-1.5 h-auto" onClick={handleTranslation}>
