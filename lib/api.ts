@@ -10,9 +10,9 @@ export interface SttResponse {
 export interface TurnResult {
   success: boolean
   nextTaskId?: string | null
-  feedback?: string
   score?: number
-  hints?: string[]
+  hint?: string | null
+  currentTaskId?: string
 }
 
 export interface ChatRequest {
@@ -80,6 +80,7 @@ export interface OpenAiTtsStreamOptions extends OpenAiTtsRequest {
 export class ApiClient {
   private baseUrl: string
   private debugMode: boolean
+  private audioCache: Map<string, string> = new Map()
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl
@@ -217,6 +218,24 @@ export class ApiClient {
     const contentType = response.headers.get('Content-Type') || 'audio/mpeg'
     this.logResponse('GET', '/api/openai/text-to-speech', { contentType })
     return { stream: response.body as ReadableStream<Uint8Array>, contentType }
+  }
+
+  // Get cached TTS URL or generate new one
+  getCachedTtsUrl(text: string, options: Omit<OpenAiTtsStreamOptions, 'text'>): string {
+    const cacheKey = `${text}|${options.sessionId}|${options.voice || 'nova'}|${options.format || 'mp3'}`
+    
+    if (this.audioCache.has(cacheKey)) {
+      return this.audioCache.get(cacheKey)!
+    }
+    
+    const url = this.openaiTtsStreamUrl({ ...options, text })
+    this.audioCache.set(cacheKey, url)
+    return url
+  }
+
+  // Clear audio cache (call on component unmount)
+  clearAudioCache(): void {
+    this.audioCache.clear()
   }
 }
 

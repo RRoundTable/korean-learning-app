@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     const messages = buildMessages(input, "metadata")
     const model = getModel()
 
-    const metadataSystem = `Role: Evaluator. Return ONLY a JSON object that matches the provided schema. Include success, nextTaskId|null, feedback, score 0-100, hints[]. No conversational text.`
+    const metadataSystem = `Role: Evaluator. Return ONLY a JSON object that matches the provided schema. Include success, nextTaskId|null, score 0-100, hint (single helpful Korean phrase for the user to say), currentTaskId. No conversational text.`
     const finalMessages = [{ role: "system", content: metadataSystem }, ...messages]
     const requestBody = { model, messages: finalMessages, response_format: { type: "json_object" } }
 

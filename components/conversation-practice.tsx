@@ -48,6 +48,8 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
   const [feedback, setFeedback] = useState<string | null>(null)
   const [score, setScore] = useState<number | null>(null)
   const [currentlyRecordingMessageId, setCurrentlyRecordingMessageId] = useState<string | null>(null)
+  const [hint, setHint] = useState<string | null>(null)
+  const [isHintPlaying, setIsHintPlaying] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "initial",
@@ -67,6 +69,7 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
   const audioChunksRef = useRef<Blob[]>([])
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const hintAudioRef = useRef<HTMLAudioElement | null>(null)
 
   // Recording functionality
   useEffect(() => {
@@ -82,6 +85,12 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
         audioRef.current.pause()
         audioRef.current = null
       }
+      if (hintAudioRef.current) {
+        hintAudioRef.current.pause()
+        hintAudioRef.current = null
+      }
+      // Clear audio cache on unmount
+      apiClient.clearAudioCache()
     }
   }, [])
 
@@ -249,7 +258,7 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
       })()
 
       // Handle metadata when it arrives
-      let turnResult: { success?: boolean; nextTaskId?: string | null; feedback?: string; score?: number; hints?: string[] } | undefined
+      let turnResult: { success?: boolean; nextTaskId?: string | null; score?: number; hint?: string | null; currentTaskId?: string } | undefined
       try {
         turnResult = await metadataPromise
       } catch (e) {
@@ -275,10 +284,9 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
         incrementAttempts()
       }
 
-      // Show feedback if provided
-      if (turnResult?.feedback) {
-        setFeedback(turnResult.feedback)
-        setTimeout(() => setFeedback(null), 5000) // Clear after 5 seconds
+      // Set hint if provided
+      if (turnResult?.hint) {
+        setHint(turnResult.hint)
       }
       
       // Show score if provided
@@ -316,6 +324,42 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
 
   const handleSave = () => {
     setIsSaved(!isSaved)
+  }
+
+  const playHintTts = async () => {
+    if (!hint || isHintPlaying) return
+    
+    try {
+      setIsHintPlaying(true)
+      
+      // Get cached TTS URL or generate new one
+      const audioUrl = apiClient.getCachedTtsUrl(hint, {
+        sessionId,
+        voice: "nova",
+        format: "mp3",
+      })
+      
+      const audio = new Audio(audioUrl)
+      hintAudioRef.current = audio
+      
+      await new Promise<void>((resolve) => {
+        audio.onended = () => {
+          setIsHintPlaying(false)
+          resolve()
+        }
+        audio.onerror = () => {
+          setIsHintPlaying(false)
+          resolve()
+        }
+        audio.play().catch(() => {
+          setIsHintPlaying(false)
+          resolve()
+        })
+      })
+    } catch (error) {
+      console.error("Error playing hint TTS:", error)
+      setIsHintPlaying(false)
+    }
   }
 
   const AudioVisualization = () => (
@@ -533,19 +577,37 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
       </AnimatePresence>
 
       {showHint && (
-        <div className="px-4 pb-4">
+        <motion.div
+          className="px-4 pb-4"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.3 }}
+        >
           <div className="max-w-2xl mx-auto">
             <Card className="border-2 border-dashed border-primary/30 bg-primary/5">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
                   <div className="text-sm">
                     <span className="font-medium text-primary">TRY SAYING:</span>
-                    <p className="mt-1">I really like kimchi and bulgogi.</p>
+                    <p className="mt-1">{hint || "힌트를 불러오는 중..."}</p>
                   </div>
                   <div className="flex gap-2 ml-auto">
-                    <Button variant="ghost" size="sm" className="p-1.5 h-auto">
-                      <Volume2 className="w-4 h-4" />
-                    </Button>
+                    {hint && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="p-1.5 h-auto"
+                        onClick={playHintTts}
+                        disabled={isHintPlaying}
+                      >
+                        {isHintPlaying ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Volume2 className="w-4 h-4" />
+                        )}
+                      </Button>
+                    )}
                     <Button variant="ghost" size="sm" className="p-1.5 h-auto">
                       <Languages className="w-4 h-4" />
                     </Button>
@@ -554,7 +616,7 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
               </CardContent>
             </Card>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Bottom Controls */}

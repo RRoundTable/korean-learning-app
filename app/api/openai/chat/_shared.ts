@@ -40,9 +40,9 @@ export type ChatInput = z.infer<typeof ChatInputSchema>
 export const TurnResultSchema = z.object({
   success: z.boolean(),
   nextTaskId: z.string().nullable().optional(),
-  feedback: z.string().optional(),
   score: z.number().min(0).max(100).optional(),
-  hints: z.array(z.string()).optional(),
+  hint: z.string().nullable().optional(),
+  currentTaskId: z.string().optional(),
 })
 export type TurnResult = z.infer<typeof TurnResultSchema>
 
