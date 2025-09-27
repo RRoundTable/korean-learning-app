@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { ChatInputSchema, buildMessages, getModel, isDebugEnabled } from "../_shared"
+import { ChatInputSchema, buildAssistantMessages, getModel, isDebugEnabled } from "../_shared"
 
 export const runtime = "nodejs"
 
@@ -17,11 +17,10 @@ export async function POST(request: NextRequest) {
     }
 
     const input = parsed.data
-    const messages = buildMessages(input, "assistant")
+    const messages = buildAssistantMessages(input)
     const model = getModel()
 
-    const assistantSystem = `역할극 상대방의 발화(한국어)이다. 절대 선생님처럼 말하지마. 역할극에 몰입해. 한문장만 말해.`
-    const finalMessages = [{ role: "system", content: assistantSystem }, ...messages]
+    const finalMessages = messages
     const requestBody = { model, messages: finalMessages }
 
     if (isDebugEnabled()) {
