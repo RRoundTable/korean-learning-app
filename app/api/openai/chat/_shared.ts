@@ -39,7 +39,6 @@ export type ChatInput = z.infer<typeof ChatInputSchema>
 
 export const TurnResultSchema = z.object({
   success: z.boolean(),
-  nextTaskId: z.string().nullable().optional(),
   score: z.number().min(0).max(100).optional(),
   hint: z.string().nullable().optional(),
   hintTranslateEn: z.string().nullable().optional(),
@@ -78,9 +77,8 @@ export const SYSTEM_PROMPTS = {
   ASSISTANT_ROLE: `역할극 상대방의 발화(한국어)이다. 절대 선생님처럼 말하지마. 역할극에 몰입해. 한문장만 말해.`,
 
   // Metadata evaluation system prompt
-  METADATA_EVALUATOR: `Role: Evaluator. Return ONLY a JSON object that matches the provided schema. Include success, nextTaskId|null, score 0-100, hint (single helpful Korean phrase for the user to say), currentTaskId. No conversational text.
+  METADATA_EVALUATOR: `Role: Evaluator. Return ONLY a JSON object that matches the provided schema. Include success, score 0-100, hint (single helpful Korean phrase for the user to say), currentTaskId. No conversational text.
 success는 유저의 답변이 올바른지 여부를 나타낸다.
-nextTaskId는 다음 과제의 ID를 나타낸다.
 hint는 유저가 다음 답변을 할때 사용할 수 있는 구문 예시를 제공한다. 구문 예시는 유저가 답을 할때 활용할 수 있는 문장으로 모든 정보를 제공하지 않는다. 대신에 유저가 답변에 활용할 수 있다.
 예를 들어 유저의 현재 Task가 메뉴의 가격을 알바생에게 물어보는 것이라면 다음과 같이 힌트를 제시할 수 있다.
 - 00은 얼마인가요?

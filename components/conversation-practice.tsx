@@ -341,7 +341,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
       })()
 
       // Handle metadata when it arrives
-      let turnResult: { success?: boolean; nextTaskId?: string | null; score?: number; hint?: string | null; hintTranslateEn?: string | null; currentTaskId?: string } | undefined
+      let turnResult: { success?: boolean; score?: number; hint?: string | null; hintTranslateEn?: string | null; currentTaskId?: string } | undefined
       try {
         turnResult = await metadataPromise
       } catch (e) {

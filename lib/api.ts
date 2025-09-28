@@ -9,7 +9,6 @@ export interface SttResponse {
 
 export interface TurnResult {
   success: boolean
-  nextTaskId?: string | null
   score?: number
   hint?: string | null
   hintTranslateEn?: string | null
