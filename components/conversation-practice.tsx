@@ -111,6 +111,11 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
 
   const startRecording = async () => {
     try {
+      // 발화 시작 시 힌트 자동 숨김
+      if (showHint) {
+        setShowHint(false)
+      }
+
       // 현재 대기 중인 메시지 ID 찾기
       const waitingMessage = messages.find(msg => msg.role === "user" && msg.isWaiting)
       console.log('Found waiting message:', waitingMessage)
@@ -251,6 +256,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
             text,
             translateEn: translateEn
           }]))
+
+          // Assistant 응답 시 힌트 자동 숨김
+          setShowHint(false)
 
           // Stream TTS for the entire text as a single audio stream
           try {
@@ -522,11 +530,8 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                       ) : (
                         <div className="text-center">
                           {message.isWaiting && !isRecording && !isProcessing && (
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-center">
                               <span className="text-sm opacity-70">Press Record</span>
-                              <Button variant="ghost" size="sm" className="p-1.5 h-auto" onClick={handleHint}>
-                                <Lightbulb className="w-4 h-4" />
-                              </Button>
                             </div>
                           )}
                           {isRecording && currentlyRecordingMessageId === message.id && (
@@ -721,6 +726,28 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                 ) : (
                   <Mic className="w-8 h-8" />
                 )}
+              </Button>
+            </motion.div>
+
+            {/* 힌트 버튼 - 새로 추가 */}
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Button
+                variant="outline"
+                size="lg"
+                className={`w-16 h-16 rounded-full transition-all duration-300 ${
+                  showHint 
+                    ? "bg-primary/10 border-primary/30 hover:bg-primary/20" 
+                    : "hover:bg-muted/50"
+                }`}
+                onClick={handleHint}
+                disabled={isAgentSpeaking}
+              >
+                <Lightbulb className={`w-6 h-6 ${showHint ? "text-primary" : ""}`} />
               </Button>
             </motion.div>
           </div>
