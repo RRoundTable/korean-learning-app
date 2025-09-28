@@ -104,50 +104,12 @@ export function LearningProvider({ children, initialScenario }: { children: Reac
   }, [])
 
   const saveProgress = React.useCallback(() => {
-    if (!scenario) return
-    
-    const progressData = {
-      scenarioId: scenario.id,
-      sessionId,
-      currentTaskIndex,
-      tasks: tasks.map(t => ({ id: t.id, status: t.status })),
-      attempts,
-      timestamp: Date.now(),
-    }
-    
-    try {
-      localStorage.setItem(`learning-progress-${scenario.id}`, JSON.stringify(progressData))
-    } catch (error) {
-      console.warn("Failed to save progress to localStorage:", error)
-    }
-  }, [scenario, sessionId, currentTaskIndex, tasks, attempts])
+    // Progress saving disabled - no localStorage usage
+  }, [])
 
   const loadProgress = React.useCallback(() => {
-    if (!scenario) return
-    
-    try {
-      const saved = localStorage.getItem(`learning-progress-${scenario.id}`)
-      if (saved) {
-        const progressData = JSON.parse(saved)
-        
-        // Only load if it's from the same session or recent (within 24 hours)
-        const isRecent = Date.now() - progressData.timestamp < 24 * 60 * 60 * 1000
-        if (progressData.sessionId === sessionId || isRecent) {
-          setCurrentTaskIndex(progressData.currentTaskIndex || 0)
-          setAttempts(progressData.attempts || 0)
-          
-          if (progressData.tasks) {
-            setTasks(prev => prev.map(task => {
-              const savedTask = progressData.tasks.find((t: any) => t.id === task.id)
-              return savedTask ? { ...task, status: savedTask.status } : task
-            }))
-          }
-        }
-      }
-    } catch (error) {
-      console.warn("Failed to load progress from localStorage:", error)
-    }
-  }, [scenario, sessionId])
+    // Progress loading disabled - no localStorage usage
+  }, [])
 
   const setScenario = React.useCallback((s: Scenario | null) => {
     setScenarioState(s)
@@ -162,33 +124,12 @@ export function LearningProvider({ children, initialScenario }: { children: Reac
     setIsAgentSpeaking(false)
     setAttempts(0)
     
-    // Clear saved progress
-    if (scenario) {
-      try {
-        localStorage.removeItem(`learning-progress-${scenario.id}`)
-      } catch (error) {
-        console.warn("Failed to clear progress from localStorage:", error)
-      }
-    }
-  }, [scenario])
+    // No localStorage clearing needed - no localStorage usage
+  }, [])
 
-  // Load progress when scenario is set
-  React.useEffect(() => {
-    if (scenario) {
-      loadProgress()
-    }
-  }, [scenario, loadProgress])
+  // Load progress disabled - no localStorage usage
 
-  // Auto-save progress when state changes
-  React.useEffect(() => {
-    if (scenario && (currentTaskIndex > 0 || tasks.some(t => t.status !== "pending"))) {
-      const timeoutId = setTimeout(() => {
-        saveProgress()
-      }, 1000) // Debounce saves
-      
-      return () => clearTimeout(timeoutId)
-    }
-  }, [scenario, currentTaskIndex, tasks, attempts, saveProgress])
+  // Auto-save progress disabled - no localStorage usage
 
   const value: LearningContextValue = React.useMemo(
     () => ({
