@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Volume2, Languages, Eye, Bookmark, Mic, X, ArrowUp, Settings, Lightbulb, Loader2 } from "lucide-react"
 import { useLearningContext } from "@/contexts/LearningContext"
 import { apiClient } from "@/lib/api"
+import { SuccessPopup } from "@/components/success-popup"
 
 interface ConversationPracticeProps {
   scenario: any
@@ -63,6 +64,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
   const [isHintPlaying, setIsHintPlaying] = useState(false)
   const [isCancelled, setIsCancelled] = useState(false)
   const [cancelledMessageId, setCancelledMessageId] = useState<string | null>(null)
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false)
   const [messages, setMessages] = useState<Message[]>(() => {
     const defaultInitialMessage = {
       text: "안녕하세요! 저는 로빈이에요. 에이미 친구맞으세요?",
@@ -358,7 +360,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
           // Check if all tasks are completed
           if (currentTaskIndex >= progress.total - 1) {
             setTimeout(() => {
-              alert("축하합니다! 모든 과제를 완료했습니다! 🎉")
+              setShowSuccessPopup(true)
             }, 1000)
           }
         }, 1500)
@@ -446,6 +448,16 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
       console.error("Error playing hint TTS:", error)
       setIsHintPlaying(false)
     }
+  }
+
+  const handleSuccessPopupClose = () => {
+    setShowSuccessPopup(false)
+  }
+
+  const handleSuccessPopupAnalyze = () => {
+    // TODO: Implement conversation analysis functionality
+    console.log("Analyze conversation")
+    setShowSuccessPopup(false)
   }
 
 
@@ -831,6 +843,13 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
           </div>
         </div>
       </div>
+
+      {/* Success Popup */}
+      <SuccessPopup
+        isOpen={showSuccessPopup}
+        onClose={handleSuccessPopupClose}
+        onAnalyze={handleSuccessPopupAnalyze}
+      />
     </div>
   )
 }
