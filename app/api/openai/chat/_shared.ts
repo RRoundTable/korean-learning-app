@@ -43,7 +43,7 @@ export const TurnResultSchema = z.object({
   score: z.number().min(0).max(100).optional(),
   hint: z.string().nullable().optional(),
   hintTranslateEn: z.string().nullable().optional(),
-  currentTaskId: z.string().optional(),
+  currentTaskId: z.string().nullable().optional(),
 })
 export type TurnResult = z.infer<typeof TurnResultSchema>
 

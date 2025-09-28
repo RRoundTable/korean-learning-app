@@ -11,11 +11,35 @@ import { Phrasebook } from "@/components/phrasebook"
 import { LearningProvider } from "@/contexts/LearningContext"
 import Link from "next/link"
 
+interface InitialMessage {
+  text: string
+  translation: string
+}
+
+interface Task {
+  ko: string
+  en: string
+}
+
+interface Scenario {
+  id: number
+  title: string
+  titleEn: string
+  role: string
+  userRole: string
+  description: string
+  descriptionEn: string
+  emoji: string
+  isFree: boolean
+  initialMessage?: InitialMessage
+  tasks?: Task[]
+}
+
 export default function KoreanLearningApp() {
   const [currentView, setCurrentView] = useState<"home" | "scenario" | "conversation" | "phrasebook">("home")
-  const [selectedScenario, setSelectedScenario] = useState<any>(null)
+  const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null)
 
-  const scenarios = [
+  const scenarios: Scenario[] = [
     {
       id: 1,
       title: "새 친구 사귀기",
@@ -27,6 +51,10 @@ export default function KoreanLearningApp() {
       descriptionEn: "Have a casual conversation with your new friend",
       emoji: "👋",
       isFree: true,
+      initialMessage: {
+        text: "안녕하세요! 저는 로빈이에요. 에이미 친구맞으세요?",
+        translation: "Hi, I'm Robin! Are you Amy's friend?",
+      },
       tasks: [
         { ko: "새로 사귄 친구에 대해 질문을 해보세요", en: "Ask your new friend a question about themselves" },
         { ko: "자신의 고향과 하는 일에 대해 얘기해 보세요", en: "Talk about your hometown and job" },
@@ -46,6 +74,16 @@ export default function KoreanLearningApp() {
       descriptionEn: "Order food at a popular Korean burger chain",
       emoji: "🍔",
       isFree: false,
+      initialMessage: {
+        text: "안녕하세요! 주문 도와드릴게요. 무엇을 드시겠어요?",
+        translation: "Hello! I'll help you with your order. What would you like?",
+      },
+      tasks: [
+        { ko: "메뉴를 물어보세요", en: "Ask about the menu" },
+        { ko: "햄버거 세트를 주문해보세요", en: "Order a burger set" },
+        { ko: "음료와 사이드 메뉴를 추가로 주문해보세요", en: "Add drinks and side dishes to your order" },
+        { ko: "가격을 확인하고 결제 방법을 물어보세요", en: "Check the price and ask about payment methods" },
+      ],
     },
     {
       id: 3,
@@ -57,6 +95,16 @@ export default function KoreanLearningApp() {
       descriptionEn: "Shopping for sneakers at Nike store",
       emoji: "👟",
       isFree: false,
+      initialMessage: {
+        text: "안녕하세요! 나이키 매장에 오신 것을 환영합니다. 어떤 운동화를 찾고 계신가요?",
+        translation: "Hello! Welcome to Nike store. What kind of sneakers are you looking for?",
+      },
+      tasks: [
+        { ko: "원하는 운동화 스타일을 설명해보세요", en: "Describe the style of sneakers you want" },
+        { ko: "사이즈를 확인하고 신어보고 싶다고 말해보세요", en: "Check the size and ask to try them on" },
+        { ko: "가격과 할인 혜택에 대해 물어보세요", en: "Ask about the price and discount benefits" },
+        { ko: "구매를 결정하고 결제 방법을 확인해보세요", en: "Decide to purchase and check payment methods" },
+      ],
     },
     {
       id: 4,
@@ -68,10 +116,20 @@ export default function KoreanLearningApp() {
       descriptionEn: "Order coffee and chat with friends at a local cafe",
       emoji: "☕",
       isFree: false,
+      initialMessage: {
+        text: "안녕하세요! 오늘은 어떤 커피를 드시겠어요?",
+        translation: "Hello! What kind of coffee would you like today?",
+      },
+      tasks: [
+        { ko: "커피 메뉴를 물어보고 추천을 받아보세요", en: "Ask about the coffee menu and get recommendations" },
+        { ko: "원하는 커피를 주문하고 사이즈를 선택해보세요", en: "Order your desired coffee and choose the size" },
+        { ko: "디저트나 간식을 추가로 주문해보세요", en: "Add desserts or snacks to your order" },
+        { ko: "가격을 확인하고 결제해보세요", en: "Check the price and make payment" },
+      ],
     },
   ]
 
-  const handleScenarioSelect = (scenario: any) => {
+  const handleScenarioSelect = (scenario: Scenario) => {
     setSelectedScenario(scenario)
     setCurrentView("scenario")
   }
@@ -84,10 +142,14 @@ export default function KoreanLearningApp() {
     setCurrentView("phrasebook")
   }
 
-  if (currentView === "conversation") {
+  if (currentView === "conversation" && selectedScenario) {
     return (
       <LearningProvider initialScenario={selectedScenario}>
-        <ConversationPractice scenario={selectedScenario} onBack={() => setCurrentView("scenario")} />
+        <ConversationPractice 
+          scenario={selectedScenario} 
+          onBack={() => setCurrentView("scenario")}
+          initialMessage={selectedScenario.initialMessage}
+        />
       </LearningProvider>
     )
   }

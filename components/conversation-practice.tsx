@@ -11,6 +11,10 @@ import { apiClient } from "@/lib/api"
 interface ConversationPracticeProps {
   scenario: any
   onBack: () => void
+  initialMessage?: {
+    text: string
+    translation: string
+  }
 }
 
 interface Message {
@@ -23,7 +27,7 @@ interface Message {
   isCurrentlyRecording?: boolean
 }
 
-export function ConversationPractice({ scenario, onBack }: ConversationPracticeProps) {
+export function ConversationPractice({ scenario, onBack, initialMessage }: ConversationPracticeProps) {
   const {
     currentTaskIndex,
     currentTask,
@@ -52,20 +56,29 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
   const [hint, setHint] = useState<string | null>(null)
   const [hintTranslateEn, setHintTranslateEn] = useState<string | null>(null)
   const [isHintPlaying, setIsHintPlaying] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "initial",
-      role: "assistant",
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const defaultInitialMessage = {
       text: "안녕하세요! 저는 로빈이에요. 에이미 친구맞으세요?",
       translation: "Hi, I'm Robin! Are you Amy's friend?",
-    },
-    {
-      id: "user-waiting",
-      role: "user",
-      text: "",
-      isWaiting: true,
-    },
-  ])
+    }
+    
+    const initialMsg = initialMessage || scenario.initialMessage || defaultInitialMessage
+    
+    return [
+      {
+        id: "initial",
+        role: "assistant",
+        text: initialMsg.text,
+        translation: initialMsg.translation,
+      },
+      {
+        id: "user-waiting",
+        role: "user",
+        text: "",
+        isWaiting: true,
+      },
+    ]
+  })
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
