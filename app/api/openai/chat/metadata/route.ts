@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { ChatInputSchema, TurnResultSchema, buildMetadataMessages, getModel, isDebugEnabled } from "../_shared"
+import { ChatInputSchema, TurnResultSchema, buildMetadataMessages, getModel, isDebugEnabled, translateToEnglish } from "../_shared"
 
 export const runtime = "nodejs"
 
@@ -63,7 +63,21 @@ export async function POST(request: NextRequest) {
     if (!parsedTurnResult.success) {
       return NextResponse.json({ error: "Metadata validation failed" }, { status: 422 })
     }
-    return NextResponse.json(parsedTurnResult.data)
+    
+    const turnResult = parsedTurnResult.data
+    
+    // Generate English translation for hint if it exists
+    if (turnResult.hint) {
+      try {
+        const hintTranslateEn = await translateToEnglish(turnResult.hint)
+        turnResult.hintTranslateEn = hintTranslateEn
+      } catch (error) {
+        console.error("Hint translation failed:", error)
+        // Continue without translation if it fails
+      }
+    }
+    
+    return NextResponse.json(turnResult)
   } catch (error) {
     console.error("Metadata chat failed:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

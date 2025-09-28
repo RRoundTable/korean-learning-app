@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { ChatInputSchema, buildAssistantMessages, getModel, isDebugEnabled } from "../_shared"
+import { ChatInputSchema, buildAssistantMessages, getModel, isDebugEnabled, translateToEnglish } from "../_shared"
 
 export const runtime = "nodejs"
 
@@ -51,7 +51,20 @@ export async function POST(request: NextRequest) {
     }
 
     const assistantText: string = data?.choices?.[0]?.message?.content ?? ""
-    return NextResponse.json({ text: assistantText })
+    
+    // Generate English translation
+    let translateEn: string | undefined
+    try {
+      translateEn = await translateToEnglish(assistantText)
+    } catch (error) {
+      console.error("Translation failed:", error)
+      // Continue without translation if it fails
+    }
+    
+    return NextResponse.json({ 
+      text: assistantText,
+      translateEn: translateEn
+    })
   } catch (error) {
     console.error("Assistant chat failed:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

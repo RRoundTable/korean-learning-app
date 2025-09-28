@@ -12,6 +12,7 @@ export interface TurnResult {
   nextTaskId?: string | null
   score?: number
   hint?: string | null
+  hintTranslateEn?: string | null
   currentTaskId?: string
 }
 
@@ -45,6 +46,7 @@ export interface ChatRequest {
 
 export interface ChatResponse {
   text: string
+  translateEn?: string
   createdAt: string
   usage?: {
     promptTokens: number
@@ -134,8 +136,8 @@ export class ApiClient {
 
   // Deprecated chat() removed. Use chatAssistant() and chatMetadata() instead.
 
-  // Assistant text (non-streaming). Returns { text: string }
-  async chatAssistant(request: ChatRequest): Promise<{ text: string }> {
+  // Assistant text (non-streaming). Returns { text: string, translateEn?: string }
+  async chatAssistant(request: ChatRequest): Promise<{ text: string; translateEn?: string }> {
     const url = `${this.baseUrl}/api/openai/chat/assistant`
     this.logRequest('POST', url, request)
     const response = await fetch(url, {
@@ -150,7 +152,7 @@ export class ApiClient {
     }
     const data = await response.json()
     this.logResponse('POST', '/api/openai/chat/assistant', data)
-    return data as { text: string }
+    return data as { text: string; translateEn?: string }
   }
 
   // Fetch metadata-only JSON (TurnResult shape)

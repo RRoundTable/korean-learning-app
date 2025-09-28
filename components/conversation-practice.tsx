@@ -18,6 +18,7 @@ interface Message {
   role: "user" | "assistant"
   text: string
   translation?: string
+  translateEn?: string
   isWaiting?: boolean
   isCurrentlyRecording?: boolean
 }
@@ -49,6 +50,7 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
   const [score, setScore] = useState<number | null>(null)
   const [currentlyRecordingMessageId, setCurrentlyRecordingMessageId] = useState<string | null>(null)
   const [hint, setHint] = useState<string | null>(null)
+  const [hintTranslateEn, setHintTranslateEn] = useState<string | null>(null)
   const [isHintPlaying, setIsHintPlaying] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -227,10 +229,15 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
       // When assistant arrives, render and TTS by sentence
       ;(async () => {
         try {
-          const { text } = await assistantPromise
+          const { text, translateEn } = await assistantPromise
           // Display full assistant text at once
           setAgentSpeaking(true)
-          setMessages(prev => prev.concat([{ id: `assistant-${Date.now()}`, role: "assistant", text }]))
+          setMessages(prev => prev.concat([{ 
+            id: `assistant-${Date.now()}`, 
+            role: "assistant", 
+            text,
+            translateEn: translateEn
+          }]))
 
           // Stream TTS for the entire text as a single audio stream
           try {
@@ -257,7 +264,7 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
       })()
 
       // Handle metadata when it arrives
-      let turnResult: { success?: boolean; nextTaskId?: string | null; score?: number; hint?: string | null; currentTaskId?: string } | undefined
+      let turnResult: { success?: boolean; nextTaskId?: string | null; score?: number; hint?: string | null; hintTranslateEn?: string | null; currentTaskId?: string } | undefined
       try {
         turnResult = await metadataPromise
       } catch (e) {
@@ -286,6 +293,7 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
       // Set hint if provided
       if (turnResult?.hint) {
         setHint(turnResult.hint)
+        setHintTranslateEn(turnResult.hintTranslateEn || null)
       }
       
       // Show score if provided
@@ -453,14 +461,14 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
                       {message.role === "assistant" ? (
                         <>
                           <p className="font-medium mb-3">{message.text}</p>
-                          {showTranslation && message.translation && (
+                          {showTranslation && (message.translation || message.translateEn) && (
                             <motion.p
                               className="text-sm opacity-70 mb-3"
                               initial={{ opacity: 0, height: 0 }}
                               animate={{ opacity: 1, height: "auto" }}
                               exit={{ opacity: 0, height: 0 }}
                             >
-                              {message.translation}
+                              {message.translateEn || message.translation}
                             </motion.p>
                           )}
                           <div className="flex items-center gap-2">
@@ -604,6 +612,16 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
                   <div className="text-sm">
                     <span className="font-medium text-primary">TRY SAYING:</span>
                     <p className="mt-1">{hint || "힌트를 불러오는 중..."}</p>
+                    {showTranslation && hintTranslateEn && (
+                      <motion.p
+                        className="text-sm opacity-70 mt-2"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                      >
+                        {hintTranslateEn}
+                      </motion.p>
+                    )}
                   </div>
                   <div className="flex gap-2 ml-auto">
                     {hint && (
@@ -621,7 +639,12 @@ export function ConversationPractice({ scenario, onBack }: ConversationPracticeP
                         )}
                       </Button>
                     )}
-                    <Button variant="ghost" size="sm" className="p-1.5 h-auto">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="p-1.5 h-auto"
+                      onClick={handleTranslation}
+                    >
                       <Languages className="w-4 h-4" />
                     </Button>
                   </div>
