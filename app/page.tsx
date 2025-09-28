@@ -16,6 +16,11 @@ interface InitialMessage {
   translation: string
 }
 
+interface InitialHint {
+  text: string
+  translation: string
+}
+
 interface Task {
   ko: string
   en: string
@@ -32,6 +37,7 @@ interface Scenario {
   emoji: string
   isFree: boolean
   initialMessage?: InitialMessage
+  initialHint?: InitialHint
   tasks?: Task[]
 }
 
@@ -54,6 +60,10 @@ export default function KoreanLearningApp() {
       initialMessage: {
         text: "안녕하세요! 저는 로빈이에요. 에이미 친구맞으세요?",
         translation: "Hi, I'm Robin! Are you Amy's friend?",
+      },
+      initialHint: {
+        text: "네, 맞아요! 안녕하세요! 저는 [이름]이에요.",
+        translation: "Yes, that's right! Hello! I'm [name]."
       },
       tasks: [
         { ko: "새로 사귄 친구에 대해 질문을 해보세요", en: "Ask your new friend a question about themselves" },
@@ -78,6 +88,10 @@ export default function KoreanLearningApp() {
         text: "안녕하세요! 주문 도와드릴게요. 무엇을 드시겠어요?",
         translation: "Hello! I'll help you with your order. What would you like?",
       },
+      initialHint: {
+        text: "메뉴를 보여주세요.",
+        translation: "Please show me the menu."
+      },
       tasks: [
         { ko: "메뉴를 물어보세요", en: "Ask about the menu" },
         { ko: "햄버거 세트를 주문해보세요", en: "Order a burger set" },
@@ -99,6 +113,10 @@ export default function KoreanLearningApp() {
         text: "안녕하세요! 나이키 매장에 오신 것을 환영합니다. 어떤 운동화를 찾고 계신가요?",
         translation: "Hello! Welcome to Nike store. What kind of sneakers are you looking for?",
       },
+      initialHint: {
+        text: "러닝화를 찾고 있어요.",
+        translation: "I'm looking for running shoes."
+      },
       tasks: [
         { ko: "원하는 운동화 스타일을 설명해보세요", en: "Describe the style of sneakers you want" },
         { ko: "사이즈를 확인하고 신어보고 싶다고 말해보세요", en: "Check the size and ask to try them on" },
@@ -119,6 +137,10 @@ export default function KoreanLearningApp() {
       initialMessage: {
         text: "안녕하세요! 오늘은 어떤 커피를 드시겠어요?",
         translation: "Hello! What kind of coffee would you like today?",
+      },
+      initialHint: {
+        text: "아메리카노 하나 주세요.",
+        translation: "One Americano, please."
       },
       tasks: [
         { ko: "커피 메뉴를 물어보고 추천을 받아보세요", en: "Ask about the coffee menu and get recommendations" },
@@ -149,6 +171,7 @@ export default function KoreanLearningApp() {
           scenario={selectedScenario} 
           onBack={() => setCurrentView("scenario")}
           initialMessage={selectedScenario.initialMessage}
+          initialHint={selectedScenario.initialHint}
         />
       </LearningProvider>
     )

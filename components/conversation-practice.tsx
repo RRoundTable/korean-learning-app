@@ -15,6 +15,10 @@ interface ConversationPracticeProps {
     text: string
     translation: string
   }
+  initialHint?: {
+    text: string
+    translation: string
+  }
 }
 
 interface Message {
@@ -28,7 +32,7 @@ interface Message {
   isCancelled?: boolean
 }
 
-export function ConversationPractice({ scenario, onBack, initialMessage }: ConversationPracticeProps) {
+export function ConversationPractice({ scenario, onBack, initialMessage, initialHint }: ConversationPracticeProps) {
   const {
     currentTaskIndex,
     currentTask,
@@ -89,6 +93,14 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const hintAudioRef = useRef<HTMLAudioElement | null>(null)
   const isCancelledRef = useRef<boolean>(false)
+
+  // Set initial hint data when component mounts or initialHint changes
+  useEffect(() => {
+    if (initialHint) {
+      setHint(initialHint.text)
+      setHintTranslateEn(initialHint.translation)
+    }
+  }, [initialHint])
 
   // Recording functionality
   useEffect(() => {
@@ -436,6 +448,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     }
   }
 
+
   const AudioVisualization = () => (
     <div className="flex items-center justify-center gap-1 py-4">
       {[...Array(20)].map((_, i) => (
@@ -730,6 +743,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           </div>
         </motion.div>
       )}
+
 
       {/* Bottom Controls */}
       <div className="p-4 bg-background border-t border-border">
