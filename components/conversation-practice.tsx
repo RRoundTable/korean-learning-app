@@ -25,6 +25,7 @@ interface Message {
   translateEn?: string
   isWaiting?: boolean
   isCurrentlyRecording?: boolean
+  isCancelled?: boolean
 }
 
 export function ConversationPractice({ scenario, onBack, initialMessage }: ConversationPracticeProps) {
@@ -56,6 +57,8 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   const [hint, setHint] = useState<string | null>(null)
   const [hintTranslateEn, setHintTranslateEn] = useState<string | null>(null)
   const [isHintPlaying, setIsHintPlaying] = useState(false)
+  const [isCancelled, setIsCancelled] = useState(false)
+  const [cancelledMessageId, setCancelledMessageId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>(() => {
     const defaultInitialMessage = {
       text: "안녕하세요! 저는 로빈이에요. 에이미 친구맞으세요?",
@@ -85,6 +88,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const hintAudioRef = useRef<HTMLAudioElement | null>(null)
+  const isCancelledRef = useRef<boolean>(false)
 
   // Recording functionality
   useEffect(() => {
@@ -111,6 +115,11 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
 
   const startRecording = async () => {
     try {
+      // 취소 상태 초기화
+      setIsCancelled(false)
+      setCancelledMessageId(null)
+      isCancelledRef.current = false
+      
       // 발화 시작 시 힌트 자동 숨김
       if (showHint) {
         setShowHint(false)
@@ -141,7 +150,18 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" })
         stream.getTracks().forEach(track => track.stop())
-        await processAudio(audioBlob)
+        
+        // 취소 상태 확인하여 분기 처리 (ref 사용으로 최신 상태 참조)
+        console.log('onstop event - isCancelledRef.current:', isCancelledRef.current)
+        if (isCancelledRef.current) {
+          // 취소된 경우: processAudio 호출하지 않음
+          console.log('Recording was cancelled, skipping processAudio')
+          handleCancelledRecording()
+        } else {
+          // 정상 중단된 경우: processAudio 호출
+          console.log('Recording completed normally, calling processAudio')
+          await processAudio(audioBlob)
+        }
       }
 
       mediaRecorder.start()
@@ -170,6 +190,30 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     setIsRecording(false)
     setListening(false)
     setCurrentlyRecordingMessageId(null)
+  }
+
+  const handleCancelledRecording = () => {
+    // 취소된 메시지 상태 업데이트
+    if (currentlyRecordingMessageId) {
+      setMessages(prev => prev.map(msg => 
+        msg.id === currentlyRecordingMessageId 
+          ? { ...msg, isCancelled: true, text: "녹음이 취소되었습니다" }
+          : msg
+      ))
+      setCancelledMessageId(currentlyRecordingMessageId)
+    }
+    
+    // 상태 초기화
+    setIsRecording(false)
+    setListening(false)
+    setCurrentlyRecordingMessageId(null)
+    setIsProcessing(false)
+    
+    // 3초 후 취소된 메시지 자동 제거
+    setTimeout(() => {
+      setMessages(prev => prev.filter(msg => msg.id !== currentlyRecordingMessageId))
+      setCancelledMessageId(null)
+    }, 3000)
   }
 
   const processAudio = async (audioBlob: Blob) => {
@@ -336,6 +380,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     }
     
     if (isRecording) {
+      // 정상 중단 (취소 아님)
+      setIsCancelled(false)
+      isCancelledRef.current = false
       stopRecording()
     } else if (!isProcessing) {
       startRecording()
@@ -548,11 +595,22 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                               <span className="text-sm opacity-70">Processing...</span>
                             </div>
                           )}
-                          {message.text && !message.isWaiting && (
+                          {message.text && !message.isWaiting && !message.isCancelled && (
                             <p className="font-medium">{message.text}</p>
                           )}
                           {message.text && message.isWaiting && isProcessing && (
                             <p className="font-medium opacity-70">{message.text}</p>
+                          )}
+                          {message.isCancelled && (
+                            <motion.p 
+                              className="font-medium text-muted-foreground italic"
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                              transition={{ duration: 0.3 }}
+                            >
+                              {message.text}
+                            </motion.p>
                           )}
                         </div>
                       )}
@@ -687,7 +745,13 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                   variant="outline"
                   size="lg"
                   className="w-16 h-16 rounded-full bg-destructive/10 border-destructive/30 hover:bg-destructive/20"
-                  onClick={stopRecording}
+                  onClick={() => {
+                    console.log('Cancel button clicked')
+                    setIsCancelled(true)
+                    isCancelledRef.current = true
+                    stopRecording()
+                  }}
+                  title="녹음 취소"
                 >
                   <X className="w-6 h-6 text-destructive" />
                 </Button>
