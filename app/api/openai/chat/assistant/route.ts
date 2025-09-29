@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { ChatInputSchema, buildAssistantMessages, getModel, isDebugEnabled, translateToEnglish } from "../_shared"
+import { ChatInputSchema, getModel, isDebugEnabled, translateToEnglish } from "../_shared"
+import { buildAssistantMessages } from "../prompts/assistant"
 
 export const runtime = "nodejs"
 
@@ -17,7 +18,20 @@ export async function POST(request: NextRequest) {
     }
 
     const input = parsed.data
-    const messages = buildAssistantMessages(input)
+    const messages = buildAssistantMessages({
+      scenario: input.scenarioContext && {
+        scenarioId: input.scenarioContext.scenarioId,
+        title: input.scenarioContext.title,
+        assistantRole: input.scenarioContext.assistantRole,
+        userRole: input.scenarioContext.userRole,
+        constraints: input.scenarioContext.constraints,
+        tasks: input.scenarioContext.tasks,
+        description: input.scenarioContext.description,
+      },
+      currentTaskKo: input.currentTask?.ko,
+      history: input.memoryHistory,
+      userMessage: input.userMessage,
+    })
     const model = getModel()
 
     const finalMessages = messages

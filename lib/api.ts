@@ -18,14 +18,14 @@ export interface TurnResult {
 export interface ChatRequest {
   sessionId: string
   userMessage: string
-  systemPrompt?: string
   scenarioContext?: {
     scenarioId: string | number
     title: string
-    role?: string
+    assistantRole?: string
     userRole?: string
+    description?: string
     constraints?: Record<string, any>
-    tasks: Array<{ id: string; ko: string; en?: string }>
+    tasks?: Array<{ id: string; ko: string; en?: string }>
   }
   progress?: {
     currentTaskIndex: number
