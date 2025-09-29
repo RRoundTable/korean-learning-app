@@ -97,6 +97,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
   const isCancelledRef = useRef<boolean>(false)
   const hasPlayedInitialTtsRef = useRef<boolean>(false)
 
+  // TEMP: disable initial TTS autoplay
+  const ENABLE_INITIAL_TTS = false
+
   // Set initial hint data when component mounts or initialHint changes
   useEffect(() => {
     if (initialHint) {
@@ -107,6 +110,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
 
   // Play initial assistant message TTS on mount / when initial message changes
   useEffect(() => {
+    if (!ENABLE_INITIAL_TTS) return
     if (hasPlayedInitialTtsRef.current) return
 
     // Determine initial message text following the same precedence as initial state
