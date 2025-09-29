@@ -10,7 +10,7 @@ export const ChatInputSchema = z.object({
       title: z.string(),
       assistantRole: z.string().optional(),
       userRole: z.string().optional(),
-      description: z.string().optional(),
+      description: z.string().min(1, "description is required"),
       constraints: z.record(z.any()).optional(),
       tasks: z.array(
         z.object({
@@ -19,8 +19,7 @@ export const ChatInputSchema = z.object({
           en: z.string().optional(),
         })
       ).optional(),
-    })
-    .optional(),
+    }),
   progress: z.object({
     currentTaskIndex: z.number(),
     completed: z.number(),

@@ -13,8 +13,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}))
     const parsed = ChatInputSchema.safeParse(body)
     if (!parsed.success) {
-      const message = parsed.error.flatten().formErrors.join("; ") || "Invalid input"
-      return NextResponse.json({ error: message }, { status: 400 })
+      const flat = parsed.error.flatten()
+      const message = flat.formErrors.join("; ") || "Invalid input"
+      return NextResponse.json({ 
+        error: message,
+        details: flat.fieldErrors,
+      }, { status: 400 })
     }
 
     const input = parsed.data
