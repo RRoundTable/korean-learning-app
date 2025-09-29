@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
         userRole: input.scenarioContext.userRole,
         constraints: input.scenarioContext.constraints,
         tasks: input.scenarioContext.tasks,
-
+        description: input.scenarioContext.description,
       },
       currentTaskKo: input.currentTask?.ko,
       history: input.memoryHistory,
@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
     })
     if (!resp.ok) {
       const errText = await resp.text().catch(() => "")
+      console.log("[INFO] metadata response:", resp.status, errText)
       return NextResponse.json({ error: `LLM provider error: ${resp.status} ${errText}` }, { status: 502 })
     }
 
