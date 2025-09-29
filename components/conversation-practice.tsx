@@ -95,6 +95,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const hintAudioRef = useRef<HTMLAudioElement | null>(null)
   const isCancelledRef = useRef<boolean>(false)
+  const hasPlayedInitialTtsRef = useRef<boolean>(false)
 
   // Set initial hint data when component mounts or initialHint changes
   useEffect(() => {
@@ -103,6 +104,57 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
       setHintTranslateEn(initialHint.translation)
     }
   }, [initialHint])
+
+  // Play initial assistant message TTS on mount / when initial message changes
+  useEffect(() => {
+    if (hasPlayedInitialTtsRef.current) return
+
+    // Determine initial message text following the same precedence as initial state
+    const defaultInitialMessage = {
+      text: "안녕하세요! 저는 로빈이에요. 에이미 친구맞으세요?",
+      translation: "Hi, I'm Robin! Are you Amy's friend?",
+    }
+    const initialMsg = initialMessage || (scenario as any).initialMessage || defaultInitialMessage
+    const text = initialMsg?.text
+    if (!text) return
+
+    let isActive = true
+    ;(async () => {
+      try {
+        setAgentSpeaking(true)
+        const audioUrl = await apiClient.getOrCreateTtsObjectUrl(text, {
+          sessionId,
+          voice: "nova",
+          format: "mp3",
+        })
+
+        if (!isActive) return
+
+        // Stop any existing audio
+        if (audioRef.current) {
+          try { audioRef.current.pause() } catch {}
+        }
+
+        const audio = new Audio(audioUrl)
+        audioRef.current = audio
+        hasPlayedInitialTtsRef.current = true
+
+        await new Promise<void>((resolve) => {
+          audio.onended = () => resolve()
+          audio.onerror = () => resolve()
+          audio.play().catch(() => resolve())
+        })
+      } catch {
+        // noop – failures should not block interaction
+      } finally {
+        if (isActive) setAgentSpeaking(false)
+      }
+    })()
+
+    return () => {
+      isActive = false
+    }
+  }, [initialMessage?.text, sessionId, setAgentSpeaking, apiClient, scenario])
 
   // Recording functionality
   useEffect(() => {
