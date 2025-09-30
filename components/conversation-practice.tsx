@@ -17,10 +17,6 @@ interface ConversationPracticeProps {
     text: string
     translation: string
   }
-  initialHint?: {
-    text: string
-    translation: string
-  }
 }
 
 interface Message {
@@ -34,7 +30,7 @@ interface Message {
   isCancelled?: boolean
 }
 
-export function ConversationPractice({ scenario, onBack, initialMessage, initialHint }: ConversationPracticeProps) {
+export function ConversationPractice({ scenario, onBack, initialMessage }: ConversationPracticeProps) {
   const {
     currentTaskIndex,
     currentTask,
@@ -107,13 +103,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
   // TEMP: disable initial TTS autoplay
   const ENABLE_INITIAL_TTS = false
 
-  // Set initial hint data when component mounts or initialHint changes
-  useEffect(() => {
-    if (initialHint) {
-      setHint(initialHint.text)
-      setHintTranslateEn(initialHint.translation)
-    }
-  }, [initialHint])
+  // Removed initialHint support: hints are fetched on demand
 
   // Play initial assistant message TTS on mount / when initial message changes
   useEffect(() => {

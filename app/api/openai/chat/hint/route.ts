@@ -11,6 +11,11 @@ export const HintResponseSchema = z.object({
 })
 export type HintResponse = z.infer<typeof HintResponseSchema>
 
+// Accept same shape as ChatInput, but allow missing userMessage
+const HintInputSchema = ChatInputSchema.extend({
+  userMessage: z.string().optional(),
+})
+
 export async function POST(request: NextRequest) {
   try {
     if (!process.env.OPENAI_API_KEY) {
@@ -18,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const parsed = ChatInputSchema.safeParse(body)
+    const parsed = HintInputSchema.safeParse(body)
     if (!parsed.success) {
       const flat = parsed.error.flatten()
       const message = flat.formErrors.join("; ") || "Invalid input"
