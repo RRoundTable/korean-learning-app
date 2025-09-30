@@ -3,6 +3,7 @@ import { z } from "zod"
 export const ChatInputSchema = z.object({
   sessionId: z.string().min(1, "sessionId is required"),
   userMessage: z.string().min(1, "userMessage is required"),
+  assistantText: z.string().optional(),
   // systemPrompt removed; prompts are centralized in prompts/*
   scenarioContext: z
     .object({

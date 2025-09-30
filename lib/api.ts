@@ -18,6 +18,7 @@ export interface TurnResult {
 export interface ChatRequest {
   sessionId: string
   userMessage: string
+  assistantText?: string
   scenarioContext?: {
     scenarioId: string | number
     title: string

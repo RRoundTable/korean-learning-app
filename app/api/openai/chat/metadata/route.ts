@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
       currentTaskKo: input.currentTask?.ko,
       history: input.memoryHistory,
       userMessage: input.userMessage,
+      assistantText: input.assistantText,
     })
     const model = getModel()
 

@@ -362,56 +362,53 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
         memoryHistory,
       }
 
-      // Step 3: Fire both assistant(non-stream) and metadata in parallel
-      const assistantPromise = apiClient.chatAssistant(chatPayload)
-      const metadataPromise = apiClient.chatMetadata(chatPayload)
-
-      // When assistant arrives, render and TTS by sentence
-      ;(async () => {
-        try {
-          const { text, translateEn } = await assistantPromise
-          // Display full assistant text at once
-          setAgentSpeaking(true)
-          setMessages(prev => prev.concat([{ 
-            id: `assistant-${Date.now()}`, 
-            role: "assistant", 
-            text,
-            translateEn: translateEn
-          }]))
-
-          // Assistant 응답 시 힌트 자동 숨김
-          setShowHint(false)
-
-          // Stream TTS for the entire text as a single audio stream
-          try {
-            const audioUrl = await apiClient.getOrCreateTtsObjectUrl(text, {
-              sessionId,
-              voice: "nova",
-              format: "mp3",
-            })
-            const audio = new Audio(audioUrl)
-            audioRef.current = audio
-            await new Promise<void>((resolve) => {
-              audio.onended = () => resolve()
-              audio.onerror = () => resolve()
-              audio.play().catch(() => resolve())
-            })
-          } catch {}
-
-          setAgentSpeaking(false)
-          setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
-        } catch (e) {
-          console.error("Assistant error", e)
-          setAgentSpeaking(false)
-        }
-      })()
-
-      // Handle metadata when it arrives
-      let turnResult: { success?: boolean; score?: number; hint?: string | null; hintTranslateEn?: string | null; currentTaskId?: string } | undefined
+      // Step 3: Call assistant first, then metadata with assistantText
+      let assistantText: string | undefined
       try {
-        turnResult = await metadataPromise
+        const { text, translateEn } = await apiClient.chatAssistant(chatPayload)
+        assistantText = text
+        // Display full assistant text at once
+        setAgentSpeaking(true)
+        setMessages(prev => prev.concat([{ 
+          id: `assistant-${Date.now()}`, 
+          role: "assistant", 
+          text,
+          translateEn: translateEn
+        }]))
+
+        // Assistant 응답 시 힌트 자동 숨김
+        setShowHint(false)
+
+        // Stream TTS for the entire text as a single audio stream
+        try {
+          const audioUrl = await apiClient.getOrCreateTtsObjectUrl(text, {
+            sessionId,
+            voice: "nova",
+            format: "mp3",
+          })
+          const audio = new Audio(audioUrl)
+          audioRef.current = audio
+          await new Promise<void>((resolve) => {
+            audio.onended = () => resolve()
+            audio.onerror = () => resolve()
+            audio.play().catch(() => resolve())
+          })
+        } catch {}
       } catch (e) {
-        turnResult = undefined
+        console.error("Assistant error", e)
+      } finally {
+        setAgentSpeaking(false)
+        setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
+      }
+
+      // Metadata (sequential) – only if assistant succeeded
+      let turnResult: { success?: boolean; score?: number; hint?: string | null; hintTranslateEn?: string | null; currentTaskId?: string } | undefined
+      if (assistantText) {
+        try {
+          turnResult = await apiClient.chatMetadata({ ...chatPayload, assistantText })
+        } catch (e) {
+          turnResult = undefined
+        }
       }
 
       // Handle task progress based on metadata
@@ -504,37 +501,33 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
         memoryHistory,
       }
 
-      // Fire both assistant(non-stream) and metadata in parallel
-      const assistantPromise = apiClient.chatAssistant(chatPayload)
-      const metadataPromise = apiClient.chatMetadata(chatPayload)
-
-      // Assistant response handling (no TTS in text-only mode)
-      ;(async () => {
-        try {
-          const { text, translateEn } = await assistantPromise
-          setAgentSpeaking(false)
-          setMessages(prev => prev.concat([{ 
-            id: `assistant-${Date.now()}`, 
-            role: "assistant", 
-            text,
-            translateEn: translateEn,
-          }]))
-          setShowHint(false)
-          setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
-        } catch (e) {
-          console.error("Assistant error", e)
-          setAgentSpeaking(false)
-        } finally {
-          setIsProcessing(false)
-        }
-      })()
-
-      // Metadata handling
-      let turnResult: { success?: boolean; score?: number; hint?: string | null; hintTranslateEn?: string | null; currentTaskId?: string } | undefined
+      // Assistant then metadata (sequential, no TTS in text-only mode)
+      let assistantText: string | undefined
       try {
-        turnResult = await metadataPromise
+        const { text, translateEn } = await apiClient.chatAssistant(chatPayload)
+        assistantText = text
+        setAgentSpeaking(false)
+        setMessages(prev => prev.concat([{ 
+          id: `assistant-${Date.now()}`, 
+          role: "assistant", 
+          text,
+          translateEn: translateEn,
+        }]))
+        setShowHint(false)
+        setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
       } catch (e) {
-        turnResult = undefined
+        console.error("Assistant error", e)
+        setAgentSpeaking(false)
+      }
+
+      // Metadata handling (only if assistant succeeded)
+      let turnResult: { success?: boolean; score?: number; hint?: string | null; hintTranslateEn?: string | null; currentTaskId?: string } | undefined
+      if (assistantText) {
+        try {
+          turnResult = await apiClient.chatMetadata({ ...chatPayload, assistantText })
+        } catch (e) {
+          turnResult = undefined
+        }
       }
 
       if (turnResult?.success) {

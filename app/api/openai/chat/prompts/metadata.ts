@@ -7,6 +7,8 @@ const METADATA_SYSTEM_PROMPT  =
 너는 학생의 발화 히스토리를 제공받을 것이고 시나리오와 현재 수행해야하는 작업정보를 전달 받을 것이다.
 이 정보를 바탕으로 아래 형식에 맞게 응답하라. 반드시 json 객체로만 응답하라. (Respond ONLY with a JSON object.)
 
+또한, 방금 assistant가 한 응답 텍스트가 별도의 assistant 메시지로 제공될 수 있다면 그것도 함께 참고하여 보다 일관된 평가와 힌트를 제공하라. user 메시지와 assistant 메시지는 서로 다른 메시지 항목으로 주어진다.
+
 응답형식:
 {
   "success": boolean,
@@ -41,8 +43,9 @@ export function buildMetadataMessages(options: {
   currentTaskKo?: string
   history?: MessageHistory
   userMessage: string
+  assistantText?: string
 }) {
-  const { scenario, currentTaskKo, history, userMessage } = options
+  const { scenario, currentTaskKo, history, userMessage, assistantText } = options
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = []
 
   const system = buildMetadataSystemPrompt()
@@ -53,10 +56,20 @@ export function buildMetadataMessages(options: {
 
   if (history && history.length > 0) history.forEach((m) => messages.push({ role: m.role, content: m.text }))
 
-  const expandedUserMessage = `\ncurrentTask: ${currentTaskKo || ""}\nuserMessage: ${userMessage}\n`
-  const last = messages[messages.length - 1]
-  const shouldAppend = !last || last.role !== "user" || (String(last.content || "").trim() !== String(expandedUserMessage).trim())
-  if (shouldAppend) messages.push({ role: "user", content: expandedUserMessage })
+  // Include current task as a lightweight system note (if present)
+  if (currentTaskKo && currentTaskKo.trim().length > 0) {
+    messages.push({ role: "system", content: `currentTask: ${currentTaskKo}` })
+  }
+
+  // Append the latest user message as its own message
+  if (userMessage && userMessage.trim().length > 0) {
+    messages.push({ role: "user", content: userMessage })
+  }
+
+  // Append the latest assistant message separately (if provided)
+  if (assistantText && assistantText.trim().length > 0) {
+    messages.push({ role: "assistant", content: assistantText })
+  }
 
   return messages
 }
