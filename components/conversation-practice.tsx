@@ -58,11 +58,13 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
   const [isProcessing, setIsProcessing] = useState(false)
   const [recordingDuration, setRecordingDuration] = useState(0)
   const [feedback, setFeedback] = useState<string | null>(null)
-  const [score, setScore] = useState<number | null>(null)
+  // score removed per new design (metadata split)
   const [currentlyRecordingMessageId, setCurrentlyRecordingMessageId] = useState<string | null>(null)
   const [hint, setHint] = useState<string | null>(null)
   const [hintTranslateEn, setHintTranslateEn] = useState<string | null>(null)
   const [isHintPlaying, setIsHintPlaying] = useState(false)
+  const [isHintLoading, setIsHintLoading] = useState(false)
+  const [hintTaskIndex, setHintTaskIndex] = useState<number | null>(null)
   const [isCancelled, setIsCancelled] = useState(false)
   const [cancelledMessageId, setCancelledMessageId] = useState<string | null>(null)
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
@@ -401,18 +403,18 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
         setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
       }
 
-      // Metadata (sequential) – only if assistant succeeded
-      let turnResult: { success?: boolean; score?: number; hint?: string | null; hintTranslateEn?: string | null; currentTaskId?: string } | undefined
+      // Check success (sequential) – only if assistant succeeded
+      let check: { success?: boolean } | undefined
       if (assistantText) {
         try {
-          turnResult = await apiClient.chatMetadata({ ...chatPayload, assistantText })
+          check = await apiClient.chatCheckSuccess({ ...chatPayload, assistantText })
         } catch (e) {
-          turnResult = undefined
+          check = undefined
         }
       }
 
-      // Handle task progress based on metadata
-      if (turnResult?.success) {
+      // Handle task progress based on check-success
+      if (check?.success) {
         markCurrentTaskSuccess()
         setTimeout(() => {
           gotoNextTask()
@@ -430,17 +432,6 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
         incrementAttempts()
       }
 
-      // Set hint if provided
-      if (turnResult?.hint) {
-        setHint(turnResult.hint)
-        setHintTranslateEn(turnResult.hintTranslateEn || null)
-      }
-      
-      // Show score if provided
-      if (turnResult?.score !== undefined) {
-        setScore(turnResult.score)
-        setTimeout(() => setScore(null), 3000) // Clear after 3 seconds
-      }
     } catch (error) {
       console.error("Error processing audio:", error)
       setIsProcessing(false) // 에러 시에도 반드시 해제
@@ -520,17 +511,17 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
         setAgentSpeaking(false)
       }
 
-      // Metadata handling (only if assistant succeeded)
-      let turnResult: { success?: boolean; score?: number; hint?: string | null; hintTranslateEn?: string | null; currentTaskId?: string } | undefined
+      // Check-success handling (only if assistant succeeded)
+      let check: { success?: boolean } | undefined
       if (assistantText) {
         try {
-          turnResult = await apiClient.chatMetadata({ ...chatPayload, assistantText })
+          check = await apiClient.chatCheckSuccess({ ...chatPayload, assistantText })
         } catch (e) {
-          turnResult = undefined
+          check = undefined
         }
       }
 
-      if (turnResult?.success) {
+      if (check?.success) {
         markCurrentTaskSuccess()
         setTimeout(() => {
           gotoNextTask()
@@ -545,15 +536,6 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
         incrementAttempts()
       }
 
-      if (turnResult?.hint) {
-        setHint(turnResult.hint)
-        setHintTranslateEn(turnResult.hintTranslateEn || null)
-      }
-
-      if (turnResult?.score !== undefined) {
-        setScore(turnResult.score)
-        setTimeout(() => setScore(null), 3000)
-      }
     } catch (error) {
       console.error("Error sending typed message:", error)
       setIsProcessing(false)
@@ -582,8 +564,56 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
     setShowTranslation(!showTranslation)
   }
 
-  const handleHint = () => {
-    setShowHint(!showHint)
+  const handleHint = async () => {
+    const next = !showHint
+    setShowHint(next)
+    if (!next) return
+    console.log('[Hint] button clicked. showHint ->', next, 'currentTaskIndex:', currentTaskIndex)
+    // If we already have a hint for THIS task index, do not refetch
+    if (hint && hintTaskIndex === currentTaskIndex) {
+      console.log('[Hint] using cached hint for task', hintTaskIndex)
+      return
+    }
+    try {
+      setIsHintLoading(true)
+      const memoryHistory = messages
+        .filter(msg => !msg.isWaiting && msg.text)
+        .map(msg => ({ role: msg.role, text: msg.text }))
+      const payload = {
+        sessionId,
+        userMessage: messages.findLast?.((m) => m.role === 'user' && !m.isWaiting && !!m.text)?.text || typedMessage || '',
+        scenarioContext: {
+          scenarioId: scenario.id,
+          title: scenario.title,
+          assistantRole: scenario.role,
+          userRole: scenario.userRole,
+          description: scenario.description,
+          constraints: scenario.constraints || {},
+          tasks: scenario.tasks?.map((task: any, idx: number) => ({ id: `t-${idx}`, ko: task.ko, en: task.en })) || [],
+        },
+        progress: {
+          currentTaskIndex,
+          completed: progress.completed,
+          total: progress.total,
+        },
+        currentTask: currentTask ? {
+          id: currentTask.id,
+          ko: currentTask.ko,
+          en: currentTask.en,
+        } : undefined,
+        memoryHistory,
+      }
+      console.log('[Hint] calling chatHint with payload')
+      const res = await apiClient.chatHint(payload as any)
+      setHint(res.hint)
+      setHintTranslateEn(res.hintTranslateEn || null)
+      setHintTaskIndex(currentTaskIndex)
+      console.log('[Hint] received hint for task', currentTaskIndex)
+    } catch (e) {
+      console.error("Hint request failed", e)
+    } finally {
+      setIsHintLoading(false)
+    }
   }
 
   const handleSave = () => {
@@ -862,29 +892,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
         )}
       </AnimatePresence>
 
-      {/* Score Display */}
-      <AnimatePresence>
-        {score !== null && (
-          <motion.div
-            className="px-4 pb-2"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-          >
-            <div className="max-w-2xl mx-auto flex justify-center">
-              <div className={`px-4 py-2 rounded-full text-sm font-bold ${
-                score >= 80 
-                  ? "bg-green-100 text-green-800 border border-green-200"
-                  : score >= 60
-                  ? "bg-yellow-100 text-yellow-800 border border-yellow-200"
-                  : "bg-red-100 text-red-800 border border-red-200"
-              }`}>
-                점수: {score}/100
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Score Display removed per new design */}
 
       {showHint && (
         <motion.div
@@ -936,6 +944,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
                     >
                       <Languages className="w-4 h-4" />
                     </Button>
+                    {isHintLoading && (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    )}
                   </div>
                 </div>
               </CardContent>

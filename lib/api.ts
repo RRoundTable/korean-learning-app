@@ -9,10 +9,6 @@ export interface SttResponse {
 
 export interface TurnResult {
   success: boolean
-  score?: number
-  hint?: string | null
-  hintTranslateEn?: string | null
-  currentTaskId?: string
 }
 
 export interface ChatRequest {
@@ -156,8 +152,8 @@ export class ApiClient {
   }
 
   // Fetch metadata-only JSON (TurnResult shape)
-  async chatMetadata(request: ChatRequest): Promise<TurnResult> {
-    const url = `${this.baseUrl}/api/openai/chat/metadata`
+  async chatCheckSuccess(request: ChatRequest): Promise<TurnResult> {
+    const url = `${this.baseUrl}/api/openai/chat/check-success`
     this.logRequest('POST', url, request)
     const response = await fetch(url, {
       method: 'POST',
@@ -166,12 +162,30 @@ export class ApiClient {
       credentials: 'include',
     })
     if (!response.ok) {
-      const err = await response.json().catch(() => ({ error: 'Metadata request failed' }))
-      throw new Error(err.error || `Metadata failed with status ${response.status}`)
+      const err = await response.json().catch(() => ({ error: 'Check-success request failed' }))
+      throw new Error(err.error || `Check-success failed with status ${response.status}`)
     }
     const data = await response.json()
-    this.logResponse('POST', '/api/openai/chat/metadata', data)
+    this.logResponse('POST', '/api/openai/chat/check-success', data)
     return data as TurnResult
+  }
+
+  async chatHint(request: ChatRequest): Promise<{ hint: string; hintTranslateEn?: string | null }> {
+    const url = `${this.baseUrl}/api/openai/chat/hint`
+    this.logRequest('POST', url, request)
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      credentials: 'include',
+    })
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: 'Hint request failed' }))
+      throw new Error(err.error || `Hint failed with status ${response.status}`)
+    }
+    const data = await response.json()
+    this.logResponse('POST', '/api/openai/chat/hint', data)
+    return data as { hint: string; hintTranslateEn?: string | null }
   }
 
   async tts(request: TtsRequest): Promise<Blob> {
