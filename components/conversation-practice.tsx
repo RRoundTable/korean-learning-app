@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Volume2, Languages, Eye, Bookmark, Mic, X, ArrowUp, Settings, Lightbulb, Loader2 } from "lucide-react"
 import { useLearningContext } from "@/contexts/LearningContext"
@@ -65,6 +66,10 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
   const [isCancelled, setIsCancelled] = useState(false)
   const [cancelledMessageId, setCancelledMessageId] = useState<string | null>(null)
   const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  const [textOnlyMode, setTextOnlyMode] = useState<boolean>(
+    () => (typeof process !== "undefined" && process.env.NEXT_PUBLIC_TEXT_ONLY_CHAT === "true") || false
+  )
+  const [typedMessage, setTypedMessage] = useState<string>("")
   const [messages, setMessages] = useState<Message[]>(() => {
     const defaultInitialMessage = {
       text: "안녕하세요! 저는 로빈이에요. 에이미 친구맞으세요?",
@@ -184,6 +189,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
   }, [])
 
   const startRecording = async () => {
+    if (textOnlyMode) return
     try {
       // 취소 상태 초기화
       setIsCancelled(false)
@@ -250,6 +256,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
   }
 
   const stopRecording = () => {
+    if (textOnlyMode) return
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop()
     }
@@ -444,7 +451,125 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
     }
   }
 
+  const sendTypedMessage = async (userText: string) => {
+    if (!userText.trim()) return
+    setIsProcessing(true)
+    setTypedMessage("")
+
+    try {
+      // Update user message - find and update the waiting user message
+      setMessages(prev => {
+        let messageUpdated = false
+        const updatedMessages = prev.map(msg => {
+          if (!messageUpdated && msg.role === "user" && msg.isWaiting) {
+            messageUpdated = true
+            return { ...msg, text: userText, isWaiting: false }
+          }
+          return msg
+        })
+        return updatedMessages
+      })
+
+      // Prepare conversation snapshot
+      const memoryHistory = messages
+        .filter(msg => !msg.isWaiting && msg.text)
+        .map(msg => ({ role: msg.role, text: msg.text }))
+
+      const chatPayload = {
+        sessionId,
+        userMessage: userText,
+        scenarioContext: {
+          scenarioId: scenario.id,
+          title: scenario.title,
+          assistantRole: scenario.role,
+          userRole: scenario.userRole,
+          description: scenario.description,
+          constraints: scenario.constraints || {},
+          tasks: scenario.tasks?.map((task: any, idx: number) => ({
+            id: `t-${idx}`,
+            ko: task.ko,
+            en: task.en,
+          })) || [],
+        },
+        progress: {
+          currentTaskIndex,
+          completed: progress.completed,
+          total: progress.total,
+        },
+        currentTask: currentTask ? {
+          id: currentTask.id,
+          ko: currentTask.ko,
+          en: currentTask.en,
+        } : undefined,
+        memoryHistory,
+      }
+
+      // Fire both assistant(non-stream) and metadata in parallel
+      const assistantPromise = apiClient.chatAssistant(chatPayload)
+      const metadataPromise = apiClient.chatMetadata(chatPayload)
+
+      // Assistant response handling (no TTS in text-only mode)
+      ;(async () => {
+        try {
+          const { text, translateEn } = await assistantPromise
+          setAgentSpeaking(false)
+          setMessages(prev => prev.concat([{ 
+            id: `assistant-${Date.now()}`, 
+            role: "assistant", 
+            text,
+            translateEn: translateEn,
+          }]))
+          setShowHint(false)
+          setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
+        } catch (e) {
+          console.error("Assistant error", e)
+          setAgentSpeaking(false)
+        } finally {
+          setIsProcessing(false)
+        }
+      })()
+
+      // Metadata handling
+      let turnResult: { success?: boolean; score?: number; hint?: string | null; hintTranslateEn?: string | null; currentTaskId?: string } | undefined
+      try {
+        turnResult = await metadataPromise
+      } catch (e) {
+        turnResult = undefined
+      }
+
+      if (turnResult?.success) {
+        markCurrentTaskSuccess()
+        setTimeout(() => {
+          gotoNextTask()
+          saveProgress()
+          if (currentTaskIndex >= progress.total - 1) {
+            setTimeout(() => {
+              setShowSuccessPopup(true)
+            }, 1000)
+          }
+        }, 1500)
+      } else {
+        incrementAttempts()
+      }
+
+      if (turnResult?.hint) {
+        setHint(turnResult.hint)
+        setHintTranslateEn(turnResult.hintTranslateEn || null)
+      }
+
+      if (turnResult?.score !== undefined) {
+        setScore(turnResult.score)
+        setTimeout(() => setScore(null), 3000)
+      }
+    } catch (error) {
+      console.error("Error sending typed message:", error)
+      setIsProcessing(false)
+      alert(error instanceof Error ? error.message : "텍스트 처리 중 오류가 발생했습니다.")
+    }
+  }
+
   const handleMicPress = () => {
+    if (textOnlyMode) return
     if (isAgentSpeaking) {
       // Don't allow recording while agent is speaking
       return
@@ -473,6 +598,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
   }
 
   const playHintTts = async () => {
+    if (textOnlyMode) return
     if (!hint || isHintPlaying) return
     
     try {
@@ -542,9 +668,20 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
           <X className="w-5 h-5" />
         </Button>
         <h1 className="text-lg font-bold text-balance">{scenario.title}</h1>
-        <Button variant="ghost" size="sm" className="p-2">
-          <Settings className="w-5 h-5" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={textOnlyMode ? "default" : "ghost"}
+            size="sm"
+            className="p-2"
+            onClick={() => setTextOnlyMode((v) => !v)}
+            title="Toggle Text-only Chat Mode"
+          >
+            Text Mode
+          </Button>
+          <Button variant="ghost" size="sm" className="p-2">
+            <Settings className="w-5 h-5" />
+          </Button>
+        </div>
       </div>
 
       {/* Progress */}
@@ -627,6 +764,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
                               size="sm" 
                               className="p-1.5 h-auto"
                               onClick={async () => {
+                                if (textOnlyMode) return
                                 try {
                                   const audioUrl = await apiClient.getOrCreateTtsObjectUrl(message.text, {
                                     sessionId,
@@ -782,7 +920,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
                     )}
                   </div>
                   <div className="flex gap-2 ml-auto">
-                    {hint && (
+                    {hint && !textOnlyMode && (
                       <Button 
                         variant="ghost" 
                         size="sm" 
@@ -817,6 +955,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
       {/* Bottom Controls */}
       <div className="p-4 bg-background border-t border-border">
         <div className="max-w-2xl mx-auto">
+          {!textOnlyMode ? (
           <div className="flex items-center justify-center gap-4">
             {isRecording && (
               <motion.div
@@ -898,6 +1037,41 @@ export function ConversationPractice({ scenario, onBack, initialMessage, initial
               </Button>
             </motion.div>
           </div>
+          ) : (
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Type your message in Korean..."
+              value={typedMessage}
+              onChange={(e) => setTypedMessage(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const text = typedMessage.trim()
+                  if (!text || isProcessing || isAgentSpeaking) return
+                  ;(async () => {
+                    await sendTypedMessage(text)
+                  })()
+                }
+              }}
+            />
+            <Button
+              onClick={async () => {
+                const text = typedMessage.trim()
+                if (!text || isProcessing || isAgentSpeaking) return
+                await sendTypedMessage(text)
+              }}
+              disabled={!typedMessage.trim() || isProcessing || isAgentSpeaking}
+            >
+              Send
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleHint}
+              disabled={isAgentSpeaking}
+            >
+              <Lightbulb className="w-4 h-4" />
+            </Button>
+          </div>
+          )}
         </div>
       </div>
 
