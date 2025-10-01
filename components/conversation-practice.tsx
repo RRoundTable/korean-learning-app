@@ -68,6 +68,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     () => (typeof process !== "undefined" && process.env.NEXT_PUBLIC_TEXT_ONLY_CHAT === "true") || false
   )
   const [typedMessage, setTypedMessage] = useState<string>("")
+  const [showGoal, setShowGoal] = useState<boolean>(false)
   const [messages, setMessages] = useState<Message[]>(() => {
     const defaultInitialMessage = {
       text: "안녕하세요! 저는 로빈이에요. 에이미 친구맞으세요?",
@@ -673,6 +674,106 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     </div>
   )
 
+  // Local header components: GoalPanel and TaskRail
+  const GoalPanel = ({ goal, goalEn }: { goal?: string; goalEn?: string }) => (
+    <div className="flex-1 min-w-0 md:max-w-[60%]">
+      <div className="flex items-center justify-end">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="p-1.5 h-auto text-xs md:text-sm"
+          onClick={() => setShowGoal((v) => !v)}
+        >
+          {showGoal ? "Hide Goal" : "Show Goal"}
+        </Button>
+      </div>
+      <AnimatePresence initial={false}>
+        {showGoal && (
+          <motion.div
+            key="goal-content"
+            initial={{ opacity: 0, y: 6, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: "auto" }}
+            exit={{ opacity: 0, y: -6, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="mt-0.5"
+          >
+            <div className="text-sm md:text-lg font-semibold text-foreground line-clamp-2 break-words md:text-right">
+              {goal || "Goal not provided yet"}
+            </div>
+            {showTranslation && goalEn && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="text-xs md:text-sm text-muted-foreground mt-0.5 md:text-right"
+              >
+                {goalEn}
+              </motion.div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+
+  const TaskRail = () => (
+    <div className="flex flex-col md:items-start gap-1 md:gap-2 md:pr-4">
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="text-sm md:text-lg font-semibold text-foreground line-clamp-2 break-words">
+          {currentTask?.ko || ""}
+        </div>
+        <span className="text-[11px] md:text-xs text-muted-foreground">
+          ({progress.completed}/{progress.total})
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="p-1.5 h-auto"
+          onClick={handleTranslation}
+          aria-pressed={showTranslation}
+          title="Toggle translation"
+        >
+          <Languages className="w-4 h-4" />
+        </Button>
+      </div>
+      {showTranslation && currentTask?.en && (
+        <div className="text-xs md:text-sm text-muted-foreground line-clamp-2 break-words">
+          {currentTask.en}
+        </div>
+      )}
+      {progress.total > 0 && (
+        <div
+          className="flex items-center gap-1.5 md:gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 md:mx-0 md:px-0"
+          role="list"
+          aria-label={`Task progress: ${progress.completed} of ${progress.total} completed`}
+        >
+          {Array.from({ length: progress.total }).map((_, index) => {
+            const isCompleted = index < progress.completed
+            const isCurrent = index === currentTaskIndex
+            const base = "rounded-full"
+            const size = "w-2.5 h-2.5 md:w-3 md:h-3"
+            const color = isCompleted
+              ? "bg-primary"
+              : isCurrent
+              ? "bg-primary/80 ring-2 ring-primary/30"
+              : "bg-muted"
+            return (
+              <motion.div
+                key={index}
+                className={`${base} ${size} ${color}`}
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.2, delay: index * 0.03 }}
+                aria-label={`Task ${index + 1} of ${progress.total}${isCurrent ? ", current" : isCompleted ? ", completed" : ""}`}
+                role="listitem"
+              />
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
@@ -697,47 +798,19 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         </div>
       </div>
 
-      {/* Progress */}
-      <div className="px-4 py-3 border-b border-border">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">
-            Tasks ({progress.completed}/{progress.total} completed)
-          </span>
-          <div className="flex gap-1">
-            {Array.from({ length: progress.total }).map((_, i) => (
-              <motion.div
-                key={i}
-                className={`w-2 h-2 rounded-full ${
-                  i < progress.completed ? "bg-primary" : "bg-muted"
-                }`}
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: i * 0.1 }}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Current Task */}
+      {/* Goal + Task Rail Header */}
       <AnimatePresence mode="wait">
         <motion.div
-          key={currentTaskIndex}
-          className="px-4 py-3 bg-muted/30"
-          initial={{ opacity: 0, y: 20 }}
+          key={`goal-rail-${currentTaskIndex}-${progress.completed}-${progress.total}`}
+          className="px-4 py-3 border-b border-border bg-muted/20"
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.3 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.25 }}
         >
-          <div className="flex items-start gap-3">
-            <motion.div
-              className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0 mt-0.5"
-              animate={{ scale: currentTask?.status === "success" ? [1, 1.2, 1] : 1 }}
-              transition={{ duration: 0.5 }}
-            >
-              <div className="w-2 h-2 rounded-full bg-primary-foreground"></div>
-            </motion.div>
-            <p className="text-sm font-medium">{currentTask?.ko || "새로 사귄 친구에 대해 질문을 해보세요"}</p>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+            <TaskRail />
+            <GoalPanel goal={scenario?.goal} goalEn={scenario?.goalEn} />
           </div>
         </motion.div>
       </AnimatePresence>
