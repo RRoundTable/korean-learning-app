@@ -37,8 +37,8 @@ export function ScenarioCard({ scenario, onBack, onStart, onViewPhrasebook }: Sc
           <h2 className="text-lg font-semibold text-muted-foreground mb-4">Goal</h2>
           <Card className="bg-card">
             <CardContent className="p-4">
-              <p className="font-medium mb-2">{scenario.descriptionEn}</p>
-              <p className="text-sm text-muted-foreground">{scenario.titleEn}</p>
+              <p className="font-medium mb-2">{scenario.goal}</p>
+              <p className="text-sm text-muted-foreground">{scenario.goalEn}</p>
             </CardContent>
           </Card>
         </div>

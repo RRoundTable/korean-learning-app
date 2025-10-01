@@ -30,6 +30,8 @@ interface Scenario {
   userRole: string
   description: string
   descriptionEn: string
+  goal: string
+  goalEn: string
   emoji: string
   isFree: boolean
   initialMessage?: InitialMessage
@@ -50,6 +52,8 @@ export default function KoreanLearningApp() {
       description:
         "샌프란시스코에 사는 친구가 파티에 초대해 줘서 놀러 왔어요. 친구가 전부터 소개해주고 싶은 사람이 있다고 했었는데, 오늘 파티에서 드디어 만났네요!",
       descriptionEn: "Have a casual conversation with your new friend",
+      goal: "처음 만난 친구와 기본 정보 나누고 다음 약속 잡기",
+      goalEn: "Exchange basics with a new friend and set a follow-up plan",
       emoji: "👋",
       isFree: true,
       initialMessage: {
@@ -68,12 +72,14 @@ export default function KoreanLearningApp() {
     },
     {
       id: 2,
-      title: "유명 햄버거 체인점에서",
+      title: "예산에 맞는 햄버거 세트 주문하기",
       titleEn: "At a Famous Burger Chain",
       role: "패스트푸드점 직원",
       userRole: "손님",
-      description: "한국의 유명한 햄버거 체인점에서 주문하는 상황입니다.",
+      description: "현재 예산",
       descriptionEn: "Order food at a popular Korean burger chain",
+      goal: "예산 내로 햄버거 세트를 주문하고 결제 완료하기",
+      goalEn: "Order a burger set within budget and complete payment",
       emoji: "🍔",
       isFree: false,
       initialMessage: {
@@ -96,6 +102,8 @@ export default function KoreanLearningApp() {
       userRole: "운동화 사러 온 손님",
       description: "운동화를 사러 나이키 매장에 갔습니다.",
       descriptionEn: "Shopping for sneakers at Nike store",
+      goal: "원하는 운동화를 찾아 신어보고 구매 결정하기",
+      goalEn: "Find, try on, and decide on the right sneakers",
       emoji: "👟",
       isFree: false,
       initialMessage: {
@@ -118,6 +126,8 @@ export default function KoreanLearningApp() {
       userRole: "손님",
       description: "동네 카페에서 커피를 주문하고 친구와 대화합니다.",
       descriptionEn: "Order coffee and chat with friends at a local cafe",
+      goal: "원하는 커피를 주문하고 자연스럽게 대화 이어가기",
+      goalEn: "Order your coffee and keep a natural conversation",
       emoji: "☕",
       isFree: false,
       initialMessage: {
