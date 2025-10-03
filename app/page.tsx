@@ -76,22 +76,37 @@ export default function KoreanLearningApp() {
       titleEn: "At a Famous Burger Chain",
       role: "패스트푸드점 직원",
       userRole: "손님",
-      description: "현재 예산",
-      descriptionEn: "Order food at a popular Korean burger chain",
-      goal: "예산 내로 햄버거 세트를 주문하고 결제 완료하기",
+      description: "햄버거 전문점으로 다양한 종류의 햄버거를 판매합니다. 소고기 버거, 치킨 버거, 새우버거를 판매중입니다. \
+      단품 버거 가격은 다음과 같습니다.\
+      - 소고기 버거: 5000원\
+      - 치킨 버거: 6000원\
+      - 새우버거: 7000원\
+      사이드 메뉴로는 감자튀김, 치즈스틱, 콜라가 있습니다. \
+      감자튀김: 5000원 \
+      치즈스틱: 5000원 \
+      콜라: 2000원  \
+      제로콜라: 2000원 \
+      버거 세트 가격은 다음과 같습니다. 세트에는 감자튀김과 치즈스틱 중 하나, 콜라 또는 제로콜라를 선택할 수 있습니다. \
+      - 소고기 버거 세트: 10000원 \
+      - 치킨 버거 세트: 11000원 \
+      - 새우버거 세트: 12000원 \
+      버거 세트는 버거와 사이드 메뉴를 함께 제공합니다.\
+      ",
+      descriptionEn: "This is a burger chain where you can order a burger set. Order a burger set within budget and complete payment.",
+      goal: "예산: 10000원, 새우알러지, 제로콜라",
       goalEn: "Order a burger set within budget and complete payment",
       emoji: "🍔",
       isFree: false,
       initialMessage: {
-        text: "안녕하세요! 주문 도와드릴게요. 무엇을 드시겠어요?",
-        translation: "Hello! I'll help you with your order. What would you like?",
+        text: "안녕하세요! 주문 도와드릴까요?",
+        translation: "Hello! I'll help you with your order.",
       },
       
       tasks: [
         { ko: "메뉴를 물어보세요", en: "Ask about the menu" },
-        { ko: "햄버거 세트를 주문해보세요", en: "Order a burger set" },
-        { ko: "음료와 사이드 메뉴를 추가로 주문해보세요", en: "Add drinks and side dishes to your order" },
-        { ko: "가격을 확인하고 결제 방법을 물어보세요", en: "Check the price and ask about payment methods" },
+        { ko: "가격을 물어보세요", en: "Ask about the price" },
+        { ko: "제로콜라가 있는지 물어보세요.", en: "Ask if there is zero cola" },
+        { ko: "주문을 완료하세요", en: "Complete the order" },
       ],
     },
     {

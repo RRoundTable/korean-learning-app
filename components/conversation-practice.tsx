@@ -529,8 +529,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
 
     } catch (error) {
       console.error("Error sending typed message:", error)
-      setIsProcessing(false)
       alert(error instanceof Error ? error.message : "텍스트 처리 중 오류가 발생했습니다.")
+    } finally {
+      setIsProcessing(false)
     }
   }
 
