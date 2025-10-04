@@ -69,15 +69,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   )
   const [typedMessage, setTypedMessage] = useState<string>("")
   const [showGoal, setShowGoal] = useState<boolean>(false)
-  // New states for failure handling
-  const [showFailureMessage, setShowFailureMessage] = useState(false)
-  const [failureMessage, setFailureMessage] = useState<string | null>(null)
-  const [isCheckingSuccess, setIsCheckingSuccess] = useState(false)
-  // Task completion state
-  const [isAllTasksCompleted, setIsAllTasksCompleted] = useState(false)
-  // Translation states
   const [translatingMessageId, setTranslatingMessageId] = useState<string | null>(null)
-  const [translationCache, setTranslationCache] = useState<Map<string, string>>(new Map())
   const [messages, setMessages] = useState<Message[]>(() => {
     const defaultInitialMessage = {
       text: "안녕하세요! 저는 로빈이에요. 에이미 친구맞으세요?",
@@ -296,12 +288,6 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   }
 
   const processAudio = async (audioBlob: Blob) => {
-    // Check if all tasks are completed
-    if (isAllTasksCompleted) {
-      console.log("All tasks completed, ignoring audio input")
-      return
-    }
-    
     setIsProcessing(true)
     
     try {
@@ -370,64 +356,57 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         memoryHistory,
       }
 
-      // Step 3: Check success first, before calling assistant
-      setIsCheckingSuccess(true)
-      let successCheck: { success?: boolean } | undefined
-      
+      // Step 3: Call assistant first, then metadata with assistantText
+      let assistantText: string | undefined
       try {
-        successCheck = await apiClient.chatCheckSuccess(chatPayload)
+        const { text, translateEn } = await apiClient.chatAssistant(chatPayload)
+        assistantText = text
+        // Display full assistant text at once
+        setAgentSpeaking(true)
+        setMessages(prev => prev.concat([{ 
+          id: `assistant-${Date.now()}`, 
+          role: "assistant", 
+          text,
+          translateEn: translateEn
+        }]))
+
+        // Assistant 응답 시 힌트 자동 숨김
+        setShowHint(false)
+
+        // Stream TTS for the entire text as a single audio stream
+        try {
+          const audioUrl = await apiClient.getOrCreateTtsObjectUrl(text, {
+            sessionId,
+            voice: "nova",
+            format: "mp3",
+          })
+          const audio = new Audio(audioUrl)
+          audioRef.current = audio
+          await new Promise<void>((resolve) => {
+            audio.onended = () => resolve()
+            audio.onerror = () => resolve()
+            audio.play().catch(() => resolve())
+          })
+        } catch {}
       } catch (e) {
-        console.error("Success check error", e)
-        successCheck = undefined
-        // Show network error message
-        showTaskFailureMessage('network')
-        return
+        console.error("Assistant error", e)
       } finally {
-        setIsCheckingSuccess(false)
+        setAgentSpeaking(false)
+        setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
       }
 
-      // Step 4: Only call assistant if success check passes
-      if (successCheck?.success) {
-        // Success: Call assistant and show response
-        let assistantText: string | undefined
+      // Check success (sequential) – only if assistant succeeded
+      let check: { success?: boolean } | undefined
+      if (assistantText) {
         try {
-          const { text, translateEn } = await apiClient.chatAssistant(chatPayload)
-          assistantText = text
-          // Display full assistant text at once
-          setAgentSpeaking(true)
-          setMessages(prev => prev.concat([{ 
-            id: `assistant-${Date.now()}`, 
-            role: "assistant", 
-            text,
-            translateEn: translateEn
-          }]))
-
-          // Assistant 응답 시 힌트 자동 숨김
-          setShowHint(false)
-
-          // Stream TTS for the entire text as a single audio stream
-          try {
-            const audioUrl = await apiClient.getOrCreateTtsObjectUrl(text, {
-              sessionId,
-              voice: "nova",
-              format: "mp3",
-            })
-            const audio = new Audio(audioUrl)
-            audioRef.current = audio
-            await new Promise<void>((resolve) => {
-              audio.onended = () => resolve()
-              audio.onerror = () => resolve()
-              audio.play().catch(() => resolve())
-            })
-          } catch {}
+          check = await apiClient.chatCheckSuccess({ ...chatPayload, assistantText })
         } catch (e) {
-          console.error("Assistant error", e)
-        } finally {
-          setAgentSpeaking(false)
-          setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
+          check = undefined
         }
+      }
 
-        // Handle success
+      // Handle task progress based on check-success
+      if (check?.success) {
         markCurrentTaskSuccess()
         setTimeout(() => {
           gotoNextTask()
@@ -435,19 +414,14 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           
           // Check if all tasks are completed
           if (currentTaskIndex >= progress.total - 1) {
-            setIsAllTasksCompleted(true)
             setTimeout(() => {
               setShowSuccessPopup(true)
             }, 1000)
           }
         }, 1500)
       } else {
-        // Failure: Show failure message and skip assistant response
-        showTaskFailureMessage('general')
+        // Increment attempts for failed attempts
         incrementAttempts()
-        
-        // Add waiting message for next attempt
-        setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
       }
 
     } catch (error) {
@@ -459,13 +433,6 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
 
   const sendTypedMessage = async (userText: string) => {
     if (!userText.trim()) return
-    
-    // Check if all tasks are completed
-    if (isAllTasksCompleted) {
-      console.log("All tasks completed, ignoring typed message")
-      return
-    }
-    
     setIsProcessing(true)
     setTypedMessage("")
 
@@ -517,62 +484,48 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         memoryHistory,
       }
 
-      // Check success first, before calling assistant
-      setIsCheckingSuccess(true)
-      let successCheck: { success?: boolean } | undefined
-      
+      // Assistant then metadata (sequential, no TTS in text-only mode)
+      let assistantText: string | undefined
       try {
-        successCheck = await apiClient.chatCheckSuccess(chatPayload)
+        const { text, translateEn } = await apiClient.chatAssistant(chatPayload)
+        assistantText = text
+        setAgentSpeaking(false)
+        setMessages(prev => prev.concat([{ 
+          id: `assistant-${Date.now()}`, 
+          role: "assistant", 
+          text,
+          translateEn: translateEn,
+        }]))
+        setShowHint(false)
+        setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
       } catch (e) {
-        console.error("Success check error", e)
-        successCheck = undefined
-        // Show network error message
-        showTaskFailureMessage('network')
-        return
-      } finally {
-        setIsCheckingSuccess(false)
+        console.error("Assistant error", e)
+        setAgentSpeaking(false)
       }
 
-      // Only call assistant if success check passes
-      if (successCheck?.success) {
-        // Success: Call assistant and show response
-        let assistantText: string | undefined
+      // Check-success handling (only if assistant succeeded)
+      let check: { success?: boolean } | undefined
+      if (assistantText) {
         try {
-          const { text, translateEn } = await apiClient.chatAssistant(chatPayload)
-          assistantText = text
-          setAgentSpeaking(false)
-          setMessages(prev => prev.concat([{ 
-            id: `assistant-${Date.now()}`, 
-            role: "assistant", 
-            text,
-            translateEn: translateEn,
-          }]))
-          setShowHint(false)
-          setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
+          check = await apiClient.chatCheckSuccess({ ...chatPayload, assistantText })
         } catch (e) {
-          console.error("Assistant error", e)
-          setAgentSpeaking(false)
+          check = undefined
         }
+      }
 
-        // Handle success
+      if (check?.success) {
         markCurrentTaskSuccess()
         setTimeout(() => {
           gotoNextTask()
           saveProgress()
           if (currentTaskIndex >= progress.total - 1) {
-            setIsAllTasksCompleted(true)
             setTimeout(() => {
               setShowSuccessPopup(true)
             }, 1000)
           }
         }, 1500)
       } else {
-        // Failure: Show failure message and skip assistant response
-        showTaskFailureMessage('general')
         incrementAttempts()
-        
-        // Add waiting message for next attempt
-        setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
       }
 
     } catch (error) {
@@ -585,10 +538,6 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
 
   const handleMicPress = () => {
     if (textOnlyMode) return
-    if (isAllTasksCompleted) {
-      // Don't allow recording when all tasks are completed
-      return
-    }
     if (isAgentSpeaking) {
       // Don't allow recording while agent is speaking
       return
@@ -710,104 +659,27 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     setShowSuccessPopup(false)
   }
 
-  const showTaskFailureMessage = (errorType?: 'network' | 'check' | 'general') => {
-    let message = "테스크를 실패하였습니다. 다시 시도해주세요."
-    
-    switch (errorType) {
-      case 'network':
-        message = "진행 상황을 확인할 수 없습니다. 네트워크 연결을 확인해주세요."
-        break
-      case 'check':
-        message = "진행 상황을 확인할 수 없습니다. 다시 시도해주세요."
-        break
-      case 'general':
-      default:
-        message = "테스크를 실패하였습니다. 다시 시도해주세요."
-        break
-    }
-    
-    setFailureMessage(message)
-    setShowFailureMessage(true)
-    
-    // 3초 후 자동 숨김
-    setTimeout(() => {
-      setShowFailureMessage(false)
-      setFailureMessage(null)
-    }, 3000)
-  }
-
-  // 번역 처리 함수
-  const handleMessageTranslation = async (messageId: string, text: string) => {
-    // 이미 번역된 경우 캐시에서 반환
-    if (translationCache.has(messageId)) {
-      return translationCache.get(messageId)
-    }
+  const handleMessageTranslationClick = async (messageId: string, text: string) => {
+    if (translatingMessageId === messageId) return
     
     try {
       setTranslatingMessageId(messageId)
-      const { translateEn } = await apiClient.translate({ text })
+      const response = await apiClient.translate({ text, targetLanguage: "en" })
       
-      if (!translateEn) {
-        console.error('Translation result is empty')
-        return null
-      }
-      
-      // 캐시에 저장
-      setTranslationCache(prev => new Map(prev).set(messageId, translateEn))
-      
-      // 메시지 업데이트
+      // Update the message with translation
       setMessages(prev => prev.map(msg => 
         msg.id === messageId 
-          ? { ...msg, translateEn }
+          ? { ...msg, translateEn: response.translateEn }
           : msg
       ))
-      
-      return translateEn
     } catch (error) {
-      console.error('Translation failed:', error)
-      // 사용자에게 에러 메시지 표시
-      alert('번역에 실패했습니다. 다시 시도해주세요.')
-      return null
+      console.error("Translation error:", error)
     } finally {
       setTranslatingMessageId(null)
     }
   }
 
-  // 메시지 번역 버튼 클릭 핸들러
-  const handleMessageTranslationClick = async (messageId: string, text: string) => {
-    if (!text) return
-    
-    // 번역이 없으면 번역 실행
-    if (!translationCache.has(messageId)) {
-      await handleMessageTranslation(messageId, text)
-    }
-    
-    // 번역 표시 토글
-    setShowTranslation(!showTranslation)
-  }
-
-  // 힌트 번역 버튼 클릭 핸들러
-  const handleHintTranslationClick = async () => {
-    if (!hint) return
-    
-    // 번역이 없으면 번역 실행
-    if (!hintTranslateEn) {
-      try {
-        const { translateEn } = await apiClient.translate({ text: hint })
-        if (!translateEn) {
-          console.error('Hint translation result is empty')
-          alert('힌트 번역에 실패했습니다. 다시 시도해주세요.')
-          return
-        }
-        setHintTranslateEn(translateEn)
-      } catch (error) {
-        console.error('Hint translation failed:', error)
-        alert('힌트 번역에 실패했습니다. 다시 시도해주세요.')
-        return
-      }
-    }
-    
-    // 번역 표시 토글
+  const handleHintTranslationClick = () => {
     setShowTranslation(!showTranslation)
   }
 
@@ -972,30 +844,6 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       {/* Messages Container */}
       <div className="flex-1 px-4 py-6 overflow-y-auto">
         <div className="max-w-2xl mx-auto space-y-4">
-          {/* Completion Message */}
-          {isAllTasksCompleted && (
-            <motion.div
-              className="flex justify-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <Card className="bg-green-50 border-green-200 max-w-md">
-                <CardContent className="p-4 text-center">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
-                      <span className="text-white text-sm">✓</span>
-                    </div>
-                    <h3 className="text-lg font-semibold text-green-800">모든 테스크 완료!</h3>
-                  </div>
-                  <p className="text-sm text-green-700">
-                    축하합니다! 모든 대화 연습을 완료했습니다.
-                  </p>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-          
           <AnimatePresence>
             {messages.map((message) => (
               <motion.div
@@ -1087,12 +935,6 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                             <div className="flex items-center justify-center gap-2">
                               <Loader2 className="w-4 h-4 animate-spin" />
                               <span className="text-sm opacity-70">Processing...</span>
-                            </div>
-                          )}
-                          {isCheckingSuccess && (
-                            <div className="flex items-center justify-center gap-2">
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              <span className="text-sm opacity-70">Checking progress...</span>
                             </div>
                           )}
                           {message.text && !message.isWaiting && !message.isCancelled && (
@@ -1212,33 +1054,6 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         </motion.div>
       )}
 
-      {/* Failure Message Display */}
-      <AnimatePresence>
-        {showFailureMessage && (
-          <motion.div
-            className="px-4 pb-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="max-w-2xl mx-auto">
-              <Card className="border-2 border-dashed border-destructive/30 bg-destructive/5">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-5 h-5 rounded-full bg-destructive flex items-center justify-center">
-                      <X className="w-3 h-3 text-white" />
-                    </div>
-                    <div className="text-sm font-medium text-destructive">
-                      {failureMessage}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Bottom Controls */}
       <div className="p-4 bg-background border-t border-border">
@@ -1280,9 +1095,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
               <Button
                 size="lg"
                 className={`w-20 h-20 rounded-full transition-all duration-300 ${
-                  isAllTasksCompleted
-                    ? "bg-gray-400 hover:bg-gray-400 cursor-not-allowed"
-                    : isRecording
+                  isRecording
                     ? "bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/25"
                     : isProcessing
                     ? "bg-yellow-500 hover:bg-yellow-600"
@@ -1291,7 +1104,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                     : "bg-primary hover:bg-primary/90"
                 }`}
                 onClick={handleMicPress}
-                disabled={isProcessing || isAgentSpeaking || isAllTasksCompleted}
+                disabled={isProcessing || isAgentSpeaking}
               >
                 {isProcessing ? (
                   <Loader2 className="w-8 h-8 animate-spin" />
@@ -1316,14 +1129,12 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                 variant="outline"
                 size="lg"
                 className={`w-16 h-16 rounded-full transition-all duration-300 ${
-                  isAllTasksCompleted
-                    ? "bg-gray-400 hover:bg-gray-400 cursor-not-allowed"
-                    : showHint 
+                  showHint 
                     ? "bg-primary/10 border-primary/30 hover:bg-primary/20" 
                     : "hover:bg-muted/50"
                 }`}
                 onClick={handleHint}
-                disabled={isAgentSpeaking || isAllTasksCompleted}
+                disabled={isAgentSpeaking}
               >
                 <Lightbulb className={`w-6 h-6 ${showHint ? "text-primary" : ""}`} />
               </Button>
@@ -1332,34 +1143,33 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           ) : (
           <div className="flex items-center gap-2">
             <Input
-              placeholder={isAllTasksCompleted ? "모든 테스크가 완료되었습니다" : "Type your message in Korean..."}
+              placeholder="Type your message in Korean..."
               value={typedMessage}
               onChange={(e) => setTypedMessage(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   const text = typedMessage.trim()
-                  if (!text || isProcessing || isAgentSpeaking || isAllTasksCompleted) return
+                  if (!text || isProcessing || isAgentSpeaking) return
                   ;(async () => {
                     await sendTypedMessage(text)
                   })()
                 }
               }}
-              disabled={isAllTasksCompleted}
             />
             <Button
               onClick={async () => {
                 const text = typedMessage.trim()
-                if (!text || isProcessing || isAgentSpeaking || isAllTasksCompleted) return
+                if (!text || isProcessing || isAgentSpeaking) return
                 await sendTypedMessage(text)
               }}
-              disabled={!typedMessage.trim() || isProcessing || isAgentSpeaking || isAllTasksCompleted}
+              disabled={!typedMessage.trim() || isProcessing || isAgentSpeaking}
             >
               Send
             </Button>
             <Button
               variant="outline"
               onClick={handleHint}
-              disabled={isAgentSpeaking || isAllTasksCompleted}
+              disabled={isAgentSpeaking}
             >
               <Lightbulb className="w-4 h-4" />
             </Button>
