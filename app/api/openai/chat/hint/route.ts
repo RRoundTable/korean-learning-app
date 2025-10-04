@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { ChatInputSchema, isDebugEnabled, getModel, translateToEnglish } from "../_shared"
+import { ChatInputSchema, isDebugEnabled, getModel } from "../_shared"
 import { buildHintMessages } from "../prompts/hint"
 
 export const runtime = "nodejs"
@@ -71,18 +71,9 @@ export async function POST(request: NextRequest) {
     const data = await resp.json()
     const hintText: string = data?.choices?.[0]?.message?.content ?? ""
 
-    let hintTranslateEn: string | undefined
-    if (hintText) {
-      try {
-        hintTranslateEn = await translateToEnglish(hintText)
-      } catch (error) {
-        console.error("Hint translation failed:", error)
-      }
-    }
-
     const payload: HintResponse = {
       hint: hintText,
-      hintTranslateEn: hintTranslateEn ?? null,
+      hintTranslateEn: null, // 항상 null로 설정
     }
     const validated = HintResponseSchema.safeParse(payload)
     if (!validated.success) {

@@ -75,6 +75,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   const [isCheckingSuccess, setIsCheckingSuccess] = useState(false)
   // Task completion state
   const [isAllTasksCompleted, setIsAllTasksCompleted] = useState(false)
+  // Translation states
+  const [translatingMessageId, setTranslatingMessageId] = useState<string | null>(null)
+  const [translationCache, setTranslationCache] = useState<Map<string, string>>(new Map())
   const [messages, setMessages] = useState<Message[]>(() => {
     const defaultInitialMessage = {
       text: "안녕하세요! 저는 로빈이에요. 에이미 친구맞으세요?",
@@ -733,6 +736,81 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     }, 3000)
   }
 
+  // 번역 처리 함수
+  const handleMessageTranslation = async (messageId: string, text: string) => {
+    // 이미 번역된 경우 캐시에서 반환
+    if (translationCache.has(messageId)) {
+      return translationCache.get(messageId)
+    }
+    
+    try {
+      setTranslatingMessageId(messageId)
+      const { translateEn } = await apiClient.translate({ text })
+      
+      if (!translateEn) {
+        console.error('Translation result is empty')
+        return null
+      }
+      
+      // 캐시에 저장
+      setTranslationCache(prev => new Map(prev).set(messageId, translateEn))
+      
+      // 메시지 업데이트
+      setMessages(prev => prev.map(msg => 
+        msg.id === messageId 
+          ? { ...msg, translateEn }
+          : msg
+      ))
+      
+      return translateEn
+    } catch (error) {
+      console.error('Translation failed:', error)
+      // 사용자에게 에러 메시지 표시
+      alert('번역에 실패했습니다. 다시 시도해주세요.')
+      return null
+    } finally {
+      setTranslatingMessageId(null)
+    }
+  }
+
+  // 메시지 번역 버튼 클릭 핸들러
+  const handleMessageTranslationClick = async (messageId: string, text: string) => {
+    if (!text) return
+    
+    // 번역이 없으면 번역 실행
+    if (!translationCache.has(messageId)) {
+      await handleMessageTranslation(messageId, text)
+    }
+    
+    // 번역 표시 토글
+    setShowTranslation(!showTranslation)
+  }
+
+  // 힌트 번역 버튼 클릭 핸들러
+  const handleHintTranslationClick = async () => {
+    if (!hint) return
+    
+    // 번역이 없으면 번역 실행
+    if (!hintTranslateEn) {
+      try {
+        const { translateEn } = await apiClient.translate({ text: hint })
+        if (!translateEn) {
+          console.error('Hint translation result is empty')
+          alert('힌트 번역에 실패했습니다. 다시 시도해주세요.')
+          return
+        }
+        setHintTranslateEn(translateEn)
+      } catch (error) {
+        console.error('Hint translation failed:', error)
+        alert('힌트 번역에 실패했습니다. 다시 시도해주세요.')
+        return
+      }
+    }
+    
+    // 번역 표시 토글
+    setShowTranslation(!showTranslation)
+  }
+
 
   const AudioVisualization = () => (
     <div className="flex items-center justify-center gap-1 py-4">
@@ -964,8 +1042,18 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                             >
                               <Volume2 className="w-4 h-4" />
                             </Button>
-                            <Button variant="ghost" size="sm" className="p-1.5 h-auto" onClick={handleTranslation}>
-                              <Languages className="w-4 h-4" />
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="p-1.5 h-auto" 
+                              onClick={() => handleMessageTranslationClick(message.id, message.text)}
+                              disabled={translatingMessageId === message.id}
+                            >
+                              {translatingMessageId === message.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Languages className="w-4 h-4" />
+                              )}
                             </Button>
                             <Button variant="ghost" size="sm" className="p-1.5 h-auto">
                               <Eye className="w-4 h-4" />
@@ -1109,7 +1197,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                       variant="ghost" 
                       size="sm" 
                       className="p-1.5 h-auto"
-                      onClick={handleTranslation}
+                      onClick={handleHintTranslationClick}
                     >
                       <Languages className="w-4 h-4" />
                     </Button>

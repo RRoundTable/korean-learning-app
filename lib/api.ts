@@ -75,6 +75,15 @@ export interface OpenAiTtsStreamOptions extends OpenAiTtsRequest {
   sessionId: string
 }
 
+export interface TranslateRequest {
+  text: string
+  targetLanguage?: string
+}
+
+export interface TranslateResponse {
+  translateEn: string
+}
+
 export class ApiClient {
   private baseUrl: string
   private debugMode: boolean
@@ -288,6 +297,27 @@ export class ApiClient {
       }
     }
     this.audioCache.clear()
+  }
+
+  async translate(request: TranslateRequest): Promise<TranslateResponse> {
+    const url = `${this.baseUrl}/api/openai/translate`
+    this.logRequest('POST', url, request)
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      credentials: 'include',
+    })
+    
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: 'Translation request failed' }))
+      throw new Error(err.error || `Translation failed with status ${response.status}`)
+    }
+    
+    const data = await response.json()
+    this.logResponse('POST', '/api/openai/translate', data)
+    return data as TranslateResponse
   }
 }
 

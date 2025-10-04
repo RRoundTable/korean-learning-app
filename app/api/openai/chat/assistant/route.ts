@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { ChatInputSchema, getModel, isDebugEnabled, translateToEnglish } from "../_shared"
+import { ChatInputSchema, getModel, isDebugEnabled } from "../_shared"
 import { buildAssistantMessages } from "../prompts/assistant"
 
 export const runtime = "nodejs"
@@ -69,18 +69,14 @@ export async function POST(request: NextRequest) {
 
     const assistantText: string = data?.choices?.[0]?.message?.content ?? ""
     
-    // Generate English translation
-    let translateEn: string | undefined
-    try {
-      translateEn = await translateToEnglish(assistantText)
-    } catch (error) {
-      console.error("Translation failed:", error)
-      // Continue without translation if it fails
-    }
-    
     return NextResponse.json({ 
       text: assistantText,
-      translateEn: translateEn
+      createdAt: new Date().toISOString(),
+      usage: {
+        promptTokens: data.usage?.prompt_tokens || 0,
+        completionTokens: data.usage?.completion_tokens || 0,
+        totalTokens: data.usage?.total_tokens || 0,
+      }
     })
   } catch (error) {
     console.error("Assistant chat failed:", error)
