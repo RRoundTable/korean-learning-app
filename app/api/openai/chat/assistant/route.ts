@@ -32,6 +32,8 @@ export async function POST(request: NextRequest) {
         tasks: input.scenarioContext.tasks,
         description: input.scenarioContext.description,
       },
+      currentTask: input.currentTask,
+      progress: input.progress,
       history: input.memoryHistory,
       userMessage: input.userMessage,
     })
