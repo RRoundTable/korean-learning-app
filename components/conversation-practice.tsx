@@ -356,53 +356,62 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         memoryHistory,
       }
 
-      // Step 3: Call assistant first, then metadata with assistantText
+      // Step 3: Parallel execution - Assistant and Success Check
       let assistantText: string | undefined
+      let check: { success?: boolean } | undefined
+      
       try {
-        const { text, translateEn } = await apiClient.chatAssistant(chatPayload)
-        assistantText = text
-        // Display full assistant text at once
-        setAgentSpeaking(true)
-        setMessages(prev => prev.concat([{ 
-          id: `assistant-${Date.now()}`, 
-          role: "assistant", 
-          text,
-          translateEn: translateEn
-        }]))
-
-        // Assistant 응답 시 힌트 자동 숨김
-        setShowHint(false)
-
-        // Stream TTS for the entire text as a single audio stream
-        try {
-          const audioUrl = await apiClient.getOrCreateTtsObjectUrl(text, {
-            sessionId,
-            voice: "nova",
-            format: "mp3",
+        // Run assistant and success check in parallel
+        const [assistantResponse, successCheckResponse] = await Promise.all([
+          apiClient.chatAssistant(chatPayload).catch((e) => {
+            console.error("Assistant error", e)
+            return { text: "", translateEn: "" }
+          }),
+          apiClient.chatCheckSuccess(chatPayload).catch((e) => {
+            console.error("Success check error", e)
+            return { success: false }
           })
-          const audio = new Audio(audioUrl)
-          audioRef.current = audio
-          await new Promise<void>((resolve) => {
-            audio.onended = () => resolve()
-            audio.onerror = () => resolve()
-            audio.play().catch(() => resolve())
-          })
-        } catch {}
+        ])
+
+        // Handle assistant response
+        assistantText = assistantResponse.text
+        if (assistantText && assistantText.trim().length > 0) {
+          setAgentSpeaking(true)
+          setMessages(prev => prev.concat([{ 
+            id: `assistant-${Date.now()}`, 
+            role: "assistant", 
+            text: assistantText!,
+            translateEn: assistantResponse.translateEn
+          }]))
+
+          // Assistant 응답 시 힌트 자동 숨김
+          setShowHint(false)
+
+          // Stream TTS for the entire text as a single audio stream
+          try {
+            const audioUrl = await apiClient.getOrCreateTtsObjectUrl(assistantText, {
+              sessionId,
+              voice: "nova",
+              format: "mp3",
+            })
+            const audio = new Audio(audioUrl)
+            audioRef.current = audio
+            await new Promise<void>((resolve) => {
+              audio.onended = () => resolve()
+              audio.onerror = () => resolve()
+              audio.play().catch(() => resolve())
+            })
+          } catch {}
+        }
+
+        // Handle success check response
+        check = successCheckResponse
+
       } catch (e) {
-        console.error("Assistant error", e)
+        console.error("Parallel execution error", e)
       } finally {
         setAgentSpeaking(false)
         setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
-      }
-
-      // Check success (sequential) – only if assistant succeeded
-      let check: { success?: boolean } | undefined
-      if (assistantText) {
-        try {
-          check = await apiClient.chatCheckSuccess({ ...chatPayload, assistantText })
-        } catch (e) {
-          check = undefined
-        }
       }
 
       // Handle task progress based on check-success
@@ -484,33 +493,44 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         memoryHistory,
       }
 
-      // Assistant then metadata (sequential, no TTS in text-only mode)
+      // Parallel execution - Assistant and Success Check (text-only mode)
       let assistantText: string | undefined
-      try {
-        const { text, translateEn } = await apiClient.chatAssistant(chatPayload)
-        assistantText = text
-        setAgentSpeaking(false)
-        setMessages(prev => prev.concat([{ 
-          id: `assistant-${Date.now()}`, 
-          role: "assistant", 
-          text,
-          translateEn: translateEn,
-        }]))
-        setShowHint(false)
-        setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
-      } catch (e) {
-        console.error("Assistant error", e)
-        setAgentSpeaking(false)
-      }
-
-      // Check-success handling (only if assistant succeeded)
       let check: { success?: boolean } | undefined
-      if (assistantText) {
-        try {
-          check = await apiClient.chatCheckSuccess({ ...chatPayload, assistantText })
-        } catch (e) {
-          check = undefined
+      
+      try {
+        // Run assistant and success check in parallel
+        const [assistantResponse, successCheckResponse] = await Promise.all([
+          apiClient.chatAssistant(chatPayload).catch((e) => {
+            console.error("Assistant error", e)
+            return { text: "", translateEn: "" }
+          }),
+          apiClient.chatCheckSuccess(chatPayload).catch((e) => {
+            console.error("Success check error", e)
+            return { success: false }
+          })
+        ])
+
+        // Handle assistant response
+        assistantText = assistantResponse.text
+        if (assistantText && assistantText.trim().length > 0) {
+          setAgentSpeaking(false)
+          setMessages(prev => prev.concat([{ 
+            id: `assistant-${Date.now()}`, 
+            role: "assistant", 
+            text: assistantText!,
+            translateEn: assistantResponse.translateEn,
+          }]))
+          setShowHint(false)
         }
+
+        // Handle success check response
+        check = successCheckResponse
+
+      } catch (e) {
+        console.error("Parallel execution error", e)
+        setAgentSpeaking(false)
+      } finally {
+        setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
       }
 
       if (check?.success) {

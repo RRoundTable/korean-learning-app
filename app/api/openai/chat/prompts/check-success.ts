@@ -1,4 +1,5 @@
 import { ScenarioPromptInput, MessageHistory } from "./types"
+import { buildScenarioSystemMessage as buildAssistantScenarioMessage } from "./assistant"
 
 const CHECK_SUCCESS_SYSTEM_PROMPT = `너는 한국어 학습자의 발화가 현재 과제를 달성했는지 여부만 판단하는 심판이다.
 너는 시나리오 제목, 설명, 너의 역할, 사용자(한국어 학습자)의 역할에 대해서 전달 받을 것이다. 또한 대화 히스토리도 함께 제공된다.
@@ -14,14 +15,9 @@ export function buildCheckSuccessSystemPrompt(): string {
   return CHECK_SUCCESS_SYSTEM_PROMPT
 }
 
+// Reuse assistant's scenario processing for consistency
 export function buildScenarioSystemMessage(input?: ScenarioPromptInput): string | undefined {
-  if (!input) return undefined
-  const lines: string[] = []
-  lines.push(`시나리오 제목: ${input.title}`)
-  if (input.assistantRole) lines.push(`역할: ${input.assistantRole}`)
-  if (input.userRole) lines.push(`상대방 역할: ${input.userRole}`)
-  if (input.description) lines.push(`시나리오 설명: ${input.description}`)
-  return "\n" + lines.join("\n") + "\n"
+  return buildAssistantScenarioMessage(input)
 }
 
 export function buildCheckSuccessMessages(options: {
@@ -37,25 +33,27 @@ export function buildCheckSuccessMessages(options: {
   const system = buildCheckSuccessSystemPrompt()
   messages.push({ role: "system", content: system })
 
+  // Use assistant's scenario processing (includes full task list)
   const scenarioMsg = buildScenarioSystemMessage(scenario)
   if (scenarioMsg && scenarioMsg.trim().length > 0) messages.push({ role: "system", content: scenarioMsg })
 
-  if (currentTaskKo && currentTaskKo.trim().length > 0) {
-    messages.push({ role: "system", content: `currentTask: ${currentTaskKo}` })
-  }
-
+  // Add conversation history
   if (history && history.length > 0) history.forEach((m) => messages.push({ role: m.role, content: m.text }))
 
+  // Add current user message
   if (userMessage && userMessage.trim().length > 0) {
     messages.push({ role: "user", content: userMessage })
   }
 
+  // Add current task context
+  if (currentTaskKo && currentTaskKo.trim().length > 0) {
+    messages.push({ role: "system", content: `현재 테스크: ${currentTaskKo}` })
+  }
+
+  // Assistant response is optional - only add if available
   if (assistantText && assistantText.trim().length > 0) {
     messages.push({ role: "assistant", content: assistantText })
   }
-
-  // 마지막으로 JSON으로만 응답하라고 한 번 더 강조
-  messages.push({ role: "system", content: "오직 {\"success\": boolean} JSON 객체만 반환하라." })
 
   return messages
 }
