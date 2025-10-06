@@ -44,7 +44,7 @@ export default function KoreanLearningApp() {
   const [currentView, setCurrentView] = useState<"home" | "scenario" | "conversation" | "phrasebook">("home")
   const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null)
 
-  const scenarios: Scenario[] = [
+ const scenarios: Scenario[] = [
     {
       id: 1,
       title: "새 친구 사귀기",
@@ -52,7 +52,7 @@ export default function KoreanLearningApp() {
       role: "로빈 (에이미의 친구)",
       userRole: "에이미의 친구와 처음 인사하는 사람",
       description:
-        "샌프란시스코에 사는 친구가 파티에 초대해 줘서 놀러 왔어요. 친구가 전부터 소개해주고 싶은 사람이 있다고 했었는데, 오늘 파티에서 드디어 만났네요!",
+        "샌프란시스코에 사는  친구가 파티에 초대해 줘서 놀러 왔어요. 친구가 전부터 소개해주고 싶은 사람이 있다고 했었는데, 오늘 파티에서 드디어 만났네요!",
       descriptionEn: "Have a casual conversation with your new friend",
       goal: "처음 만난 친구와 기본 정보 나누고 다음 약속 잡기",
       goalEn: "Exchange basics with a new friend and set a follow-up plan",
@@ -82,22 +82,22 @@ export default function KoreanLearningApp() {
       userRole: "손님",
       description: "햄버거 전문점으로 다양한 종류의 햄버거를 판매합니다. 소고기 버거, 치킨 버거, 새우버거를 판매중입니다. \
       단품 버거 가격은 다음과 같습니다.\
-      - 소고기 버거: 5000원\
-      - 치킨 버거: 6000원\
-      - 새우버거: 7000원\
+      - 소고기 버거: 8000원\
+      - 치킨 버거: 8000원\
+      - 새우버거: 9000원\
       사이드 메뉴로는 감자튀김, 치즈스틱, 콜라가 있습니다. \
-      감자튀김: 5000원 \
+      감자튀김: 4000원 \
       치즈스틱: 5000원 \
       콜라: 2000원  \
       제로콜라: 2000원 \
       버거 세트 가격은 다음과 같습니다. 세트에는 감자튀김과 치즈스틱 중 하나, 콜라 또는 제로콜라를 선택할 수 있습니다. \
-      - 소고기 버거 세트: 10000원 \
-      - 치킨 버거 세트: 11000원 \
-      - 새우버거 세트: 12000원 \
+      - 소고기 버거 세트: 15000원 \
+      - 치킨 버거 세트: 15000원 \
+      - 새우버거 세트: 16000원 \
       버거 세트는 버거와 사이드 메뉴를 함께 제공합니다.\
       ",
       descriptionEn: "This is a burger chain where you can order a burger set. Order a burger set within budget and complete payment.",
-      goal: "예산: 10000원, 새우알러지, 제로콜라",
+      goal: "예산: 1000원, 새우알러지, 제로콜라",
       goalEn: "Order a burger set within budget and complete payment",
       emoji: "🍔",
       isFree: false,
