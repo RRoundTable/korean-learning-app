@@ -103,10 +103,10 @@ export default function KoreanLearningApp() {
       },
       
       tasks: [
-        { ko: "메뉴를 물어보세요", en: "Ask about the menu" },
-        { ko: "가격을 물어보세요", en: "Ask about the price" },
+        { ko: "어떤 메뉴가 있는지 물어보세요.", en: "Ask about the menu" },
+        { ko: "가격을 물어보세요.", en: "Ask about the price" },
         { ko: "제로콜라가 있는지 물어보세요.", en: "Ask if there is zero cola" },
-        { ko: "주문을 완료하세요", en: "Complete the order" },
+        { ko: "주문을 완료하세요.", en: "Complete the order" },
       ],
     },
     {

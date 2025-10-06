@@ -47,7 +47,8 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     saveProgress,
   } = useLearningContext()
 
-  const [showTranslation, setShowTranslation] = useState(false)
+  const [showHintTranslation, setShowHintTranslation] = useState(false)
+  const [showAssistantTranslation, setShowAssistantTranslation] = useState(false)
   const [showHint, setShowHint] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
@@ -60,6 +61,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   const [hintTranslateEn, setHintTranslateEn] = useState<string | null>(null)
   const [isHintPlaying, setIsHintPlaying] = useState(false)
   const [isHintLoading, setIsHintLoading] = useState(false)
+  const [isHintTranslating, setIsHintTranslating] = useState(false)
   const [hintTaskIndex, setHintTaskIndex] = useState<number | null>(null)
   const [isCancelled, setIsCancelled] = useState(false)
   const [cancelledMessageId, setCancelledMessageId] = useState<string | null>(null)
@@ -573,9 +575,6 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     }
   }
 
-  const handleTranslation = () => {
-    setShowTranslation(!showTranslation)
-  }
 
   const handleHint = async () => {
     const next = !showHint
@@ -699,8 +698,34 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     }
   }
 
-  const handleHintTranslationClick = () => {
-    setShowTranslation(!showTranslation)
+  const handleHintTranslationClick = async () => {
+    if (!hint) return
+    
+    // 이미 번역이 있고 표시 중이면 토글
+    if (hintTranslateEn && showHintTranslation) {
+      setShowHintTranslation(false)
+      return
+    }
+    
+    // 번역이 없으면 API 호출
+    if (!hintTranslateEn) {
+      try {
+        setIsHintTranslating(true)
+        const response = await apiClient.translate({ 
+          text: hint, 
+          targetLanguage: "en" 
+        })
+        setHintTranslateEn(response.translateEn)
+        setShowHintTranslation(true)
+      } catch (error) {
+        console.error("Hint translation error:", error)
+      } finally {
+        setIsHintTranslating(false)
+      }
+    } else {
+      // 번역이 있으면 토글
+      setShowHintTranslation(!showHintTranslation)
+    }
   }
 
 
@@ -746,7 +771,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
             <div className="text-sm md:text-lg font-semibold text-foreground line-clamp-2 break-words md:text-right">
               {goal || "Goal not provided yet"}
             </div>
-            {showTranslation && goalEn && (
+            {showAssistantTranslation && goalEn && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
@@ -775,14 +800,14 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           variant="ghost"
           size="sm"
           className="p-1.5 h-auto"
-          onClick={handleTranslation}
-          aria-pressed={showTranslation}
+          onClick={() => setShowAssistantTranslation(!showAssistantTranslation)}
+          aria-pressed={showAssistantTranslation}
           title="Toggle translation"
         >
           <Languages className="w-4 h-4" />
         </Button>
       </div>
-      {showTranslation && currentTask?.en && (
+      {showAssistantTranslation && currentTask?.en && (
         <div className="text-xs md:text-sm text-muted-foreground line-clamp-2 break-words">
           {currentTask.en}
         </div>
@@ -880,7 +905,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                       {message.role === "assistant" ? (
                         <>
                           <p className="font-medium mb-3">{message.text}</p>
-                          {showTranslation && (message.translation || message.translateEn) && (
+                          {showAssistantTranslation && (message.translation || message.translateEn) && (
                             <motion.p
                               className="text-sm opacity-70 mb-3"
                               initial={{ opacity: 0, height: 0 }}
@@ -1028,7 +1053,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                   <div className="text-sm">
                     <span className="font-medium text-primary">TRY SAYING:</span>
                     <p className="mt-1">{hint || "힌트를 불러오는 중..."}</p>
-                    {showTranslation && hintTranslateEn && (
+                    {showHintTranslation && hintTranslateEn && (
                       <motion.p
                         className="text-sm opacity-70 mt-2"
                         initial={{ opacity: 0, height: 0 }}
@@ -1060,8 +1085,13 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                       size="sm" 
                       className="p-1.5 h-auto"
                       onClick={handleHintTranslationClick}
+                      disabled={isHintTranslating}
                     >
-                      <Languages className="w-4 h-4" />
+                      {isHintTranslating ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Languages className="w-4 h-4" />
+                      )}
                     </Button>
                     {isHintLoading && (
                       <Loader2 className="w-4 h-4 animate-spin" />
