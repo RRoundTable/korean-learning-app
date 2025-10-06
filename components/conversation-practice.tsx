@@ -9,6 +9,7 @@ import { Volume2, Languages, Eye, Bookmark, Mic, X, ArrowUp, Settings, Lightbulb
 import { useLearningContext } from "@/contexts/LearningContext"
 import { apiClient } from "@/lib/api"
 import { SuccessPopup } from "@/components/success-popup"
+import { useVad } from "@/hooks/use-vad"
 
 interface ConversationPracticeProps {
   scenario: any
@@ -72,6 +73,11 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   const [typedMessage, setTypedMessage] = useState<string>("")
   const [showGoal, setShowGoal] = useState<boolean>(false)
   const [translatingMessageId, setTranslatingMessageId] = useState<string | null>(null)
+  
+  // VAD 관련 상태
+  const [vadUtterances, setVadUtterances] = useState<Array<{ url: string; durationMs: number; timestamp: number }>>([])
+  const [isVadActive, setIsVadActive] = useState(false)
+  const [vadErrorMessage, setVadErrorMessage] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>(() => {
     const defaultInitialMessage = {
       text: "안녕하세요! 저는 로빈이에요. 에이미 친구맞으세요?",
@@ -103,9 +109,48 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   const hintAudioRef = useRef<HTMLAudioElement | null>(null)
   const isCancelledRef = useRef<boolean>(false)
   const hasPlayedInitialTtsRef = useRef<boolean>(false)
+  const vadUtterancesRef = useRef<Array<{ url: string; durationMs: number; timestamp: number }>>([])
+  const recordingStartTimeRef = useRef<number>(0)
+  
+  // VAD 훅 초기화
+  const {
+    state: vadState,
+    level: vadLevel,
+    probability: vadProbability,
+    isSpeaking: vadIsSpeaking,
+    lastUtterance: vadLastUtterance,
+    error: vadError,
+    start: vadStart,
+    stop: vadStop,
+    setSpeakingGate: vadSetSpeakingGate,
+  } = useVad()
 
   // TEMP: disable initial TTS autoplay
   const ENABLE_INITIAL_TTS = false
+
+  // VAD 발화 구간 처리
+  useEffect(() => {
+    if (vadLastUtterance && isVadActive) {
+      const utterance = {
+        url: vadLastUtterance.url,
+        durationMs: vadLastUtterance.durationMs,
+        timestamp: Date.now()
+      }
+      setVadUtterances(prev => [...prev, utterance])
+      // ref에도 저장하여 최신 상태 보장
+      vadUtterancesRef.current = [...vadUtterancesRef.current, utterance]
+    }
+  }, [vadLastUtterance, isVadActive])
+
+  // VAD 에러 처리
+  useEffect(() => {
+    if (vadError) {
+      setVadErrorMessage(vadError)
+      console.error("❌ VAD Error:", vadError)
+    }
+  }, [vadError])
+
+  // VAD 상태 변화 로깅 (제거 - 전송 시점에만 요약 출력)
 
   // Removed initialHint support: hints are fetched on demand
 
@@ -192,6 +237,11 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       setCancelledMessageId(null)
       isCancelledRef.current = false
       
+      // VAD 발화 구간 초기화
+      setVadUtterances([])
+      vadUtterancesRef.current = [] // ref도 초기화
+      setIsVadActive(true)
+      
       // 발화 시작 시 힌트 자동 숨김
       if (showHint) {
         setShowHint(false)
@@ -203,6 +253,14 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       if (waitingMessage) {
         setCurrentlyRecordingMessageId(waitingMessage.id)
         console.log('Set currentlyRecordingMessageId to:', waitingMessage.id)
+      }
+
+      // VAD 시작
+      try {
+        await vadStart()
+        setVadErrorMessage(null) // 에러 메시지 초기화
+      } catch (vadError) {
+        setVadErrorMessage(vadError instanceof Error ? vadError.message : String(vadError))
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -223,6 +281,10 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" })
         stream.getTracks().forEach(track => track.stop())
         
+        // VAD 중지
+        vadStop()
+        setIsVadActive(false)
+        
         // 취소 상태 확인하여 분기 처리 (ref 사용으로 최신 상태 참조)
         console.log('onstop event - isCancelledRef.current:', isCancelledRef.current)
         if (isCancelledRef.current) {
@@ -230,9 +292,35 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           console.log('Recording was cancelled, skipping processAudio')
           handleCancelledRecording()
         } else {
-          // 정상 중단된 경우: processAudio 호출
-          console.log('Recording completed normally, calling processAudio')
-          await processAudio(audioBlob)
+          // 정상 중단된 경우: VAD 발화 구간이 있으면 사용, 없으면 전체 오디오 사용
+          console.log('🎙️ 녹음 완료 - 오디오 분석 시작')
+          
+          // VAD 분석 결과 요약 출력 (ref 사용으로 최신 상태 보장)
+          const currentUtterances = vadUtterancesRef.current
+          const totalSpeechDuration = currentUtterances.reduce((total, utterance) => total + utterance.durationMs, 0)
+          
+          // 정확한 녹음 시간 계산 (밀리초 단위)
+          const actualRecordingDuration = (Date.now() - recordingStartTimeRef.current) / 1000
+          const speechRatio = actualRecordingDuration > 0 ? ((totalSpeechDuration / 1000) / actualRecordingDuration * 100) : 0
+          
+          console.log('📊 === VAD 분석 결과 요약 ===')
+          console.log(`🎯 처리 방식: ${currentUtterances.length > 0 ? 'VAD 발화 구간 사용' : '전체 오디오 사용'}`)
+          console.log(`⏱️ 전체 녹음 시간: ${actualRecordingDuration.toFixed(2)}초 (정확한 시간)`)
+          console.log(`⏱️ 타이머 시간: ${recordingDuration.toFixed(2)}초 (UI 표시용)`)
+          console.log(`🎤 감지된 발화 구간: ${currentUtterances.length}개`)
+          console.log(`🗣️ 총 발화 시간: ${(totalSpeechDuration / 1000).toFixed(2)}초`)
+          console.log(`📈 발화 비율: ${speechRatio.toFixed(1)}%`)
+          console.log(`🔧 VAD 상태: ${vadState}`)
+          if (vadErrorMessage) {
+            console.log(`⚠️ VAD 에러: ${vadErrorMessage}`)
+          }
+          console.log('===============================')
+          
+          if (currentUtterances.length > 0) {
+            await processVadUtterances()
+          } else {
+            await processAudio(audioBlob)
+          }
         }
       }
 
@@ -240,6 +328,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       setIsRecording(true)
       setListening(true)
       setRecordingDuration(0)
+      
+      // 정확한 녹음 시작 시간 기록
+      recordingStartTimeRef.current = Date.now()
 
       // Start timer
       recordingTimerRef.current = setInterval(() => {
@@ -289,6 +380,183 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     }, 3000)
   }
 
+  const processVadUtterances = async () => {
+    setIsProcessing(true)
+    
+    try {
+      const currentUtterances = vadUtterancesRef.current
+      if (currentUtterances.length === 0) {
+        throw new Error("발화 구간이 감지되지 않았습니다.")
+      }
+
+      // 발화 구간들을 시간 순서로 정렬
+      const sortedUtterances = [...currentUtterances].sort((a, b) => a.timestamp - b.timestamp)
+      
+      // 각 발화 구간을 STT 처리
+      const sttPromises = sortedUtterances.map(async (utterance) => {
+        try {
+          const response = await fetch(utterance.url)
+          const blob = await response.blob()
+          const sttResponse = await apiClient.stt(blob, { 
+            language: "ko",
+            prompt: "한국어 대화 연습" 
+          })
+          return sttResponse.text.trim()
+        } catch (error) {
+          console.error('STT error for utterance:', error)
+          return ""
+        }
+      })
+
+      const sttResults = await Promise.all(sttPromises)
+      const combinedText = sttResults.filter(text => text.length > 0).join(" ")
+      
+      if (!combinedText) {
+        throw new Error("음성을 인식할 수 없습니다. 다시 시도해주세요.")
+      }
+
+      // STT 완료 후 즉시 처리 상태 해제
+      setIsProcessing(false)
+
+      // Update user message
+      console.log('Updating message with VAD result:', combinedText)
+      setMessages(prev => {
+        let messageUpdated = false
+        const updatedMessages = prev.map(msg => {
+          if (!messageUpdated && msg.role === "user" && msg.isWaiting) {
+            console.log('Found message to update:', msg.id)
+            messageUpdated = true
+            return { ...msg, text: combinedText, isWaiting: false }
+          }
+          return msg
+        })
+        console.log('Updated messages:', updatedMessages)
+        return updatedMessages
+      })
+
+      // 나머지 처리는 기존 processAudio와 동일
+      await processChatLogic(combinedText)
+
+    } catch (error) {
+      console.error("Error processing VAD utterances:", error)
+      setIsProcessing(false)
+      alert(error instanceof Error ? error.message : "VAD 발화 구간 처리 중 오류가 발생했습니다.")
+    }
+  }
+
+  const processChatLogic = async (userText: string) => {
+    // Step 2: Prepare shared conversation snapshot
+    const memoryHistory = messages
+      .filter(msg => !msg.isWaiting && msg.text)
+      .map(msg => ({ role: msg.role, text: msg.text }))
+
+    const chatPayload = {
+      sessionId,
+      userMessage: userText,
+      scenarioContext: {
+        scenarioId: scenario.id,
+        title: scenario.title,
+        assistantRole: scenario.role,
+        userRole: scenario.userRole,
+        description: scenario.description,
+        constraints: scenario.constraints || {},
+        tasks: scenario.tasks?.map((task: any, idx: number) => ({
+          id: `t-${idx}`,
+          ko: task.ko,
+          en: task.en,
+        })) || [],
+      },
+      progress: {
+        currentTaskIndex,
+        completed: progress.completed,
+        total: progress.total,
+      },
+      currentTask: currentTask ? {
+        id: currentTask.id,
+        ko: currentTask.ko,
+        en: currentTask.en,
+      } : undefined,
+      memoryHistory,
+    }
+
+    // Step 3: Parallel execution - Assistant and Success Check
+    let assistantText: string | undefined
+    let check: { success?: boolean } | undefined
+    
+    try {
+      // Run assistant and success check in parallel
+      const [assistantResponse, successCheckResponse] = await Promise.all([
+        apiClient.chatAssistant(chatPayload).catch((e) => {
+          console.error("Assistant error", e)
+          return { text: "", translateEn: "" }
+        }),
+        apiClient.chatCheckSuccess(chatPayload).catch((e) => {
+          console.error("Success check error", e)
+          return { success: false }
+        })
+      ])
+
+      // Handle assistant response
+      assistantText = assistantResponse.text
+      if (assistantText && assistantText.trim().length > 0) {
+        setAgentSpeaking(true)
+        setMessages(prev => prev.concat([{ 
+          id: `assistant-${Date.now()}`, 
+          role: "assistant", 
+          text: assistantText!,
+          translateEn: assistantResponse.translateEn
+        }]))
+
+        // Assistant 응답 시 힌트 자동 숨김
+        setShowHint(false)
+
+        // Stream TTS for the entire text as a single audio stream
+        try {
+          const audioUrl = await apiClient.getOrCreateTtsObjectUrl(assistantText, {
+            sessionId,
+            voice: "nova",
+            format: "mp3",
+          })
+          const audio = new Audio(audioUrl)
+          audioRef.current = audio
+          await new Promise<void>((resolve) => {
+            audio.onended = () => resolve()
+            audio.onerror = () => resolve()
+            audio.play().catch(() => resolve())
+          })
+        } catch {}
+      }
+
+      // Handle success check response
+      check = successCheckResponse
+
+    } catch (e) {
+      console.error("Parallel execution error", e)
+    } finally {
+      setAgentSpeaking(false)
+      setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
+    }
+
+    // Handle task progress based on check-success
+    if (check?.success) {
+      markCurrentTaskSuccess()
+      setTimeout(() => {
+        gotoNextTask()
+        saveProgress()
+        
+        // Check if all tasks are completed
+        if (currentTaskIndex >= progress.total - 1) {
+          setTimeout(() => {
+            setShowSuccessPopup(true)
+          }, 1000)
+        }
+      }, 1500)
+    } else {
+      // Increment attempts for failed attempts
+      incrementAttempts()
+    }
+  }
+
   const processAudio = async (audioBlob: Blob) => {
     setIsProcessing(true)
     
@@ -324,116 +592,8 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         return updatedMessages
       })
 
-      // Step 2: Prepare shared conversation snapshot
-      const memoryHistory = messages
-        .filter(msg => !msg.isWaiting && msg.text)
-        .map(msg => ({ role: msg.role, text: msg.text }))
-
-      const chatPayload = {
-        sessionId,
-        userMessage: userText,
-        scenarioContext: {
-          scenarioId: scenario.id,
-          title: scenario.title,
-          assistantRole: scenario.role,
-          userRole: scenario.userRole,
-          description: scenario.description,
-          constraints: scenario.constraints || {},
-          tasks: scenario.tasks?.map((task: any, idx: number) => ({
-            id: `t-${idx}`,
-            ko: task.ko,
-            en: task.en,
-          })) || [],
-        },
-        progress: {
-          currentTaskIndex,
-          completed: progress.completed,
-          total: progress.total,
-        },
-        currentTask: currentTask ? {
-          id: currentTask.id,
-          ko: currentTask.ko,
-          en: currentTask.en,
-        } : undefined,
-        memoryHistory,
-      }
-
-      // Step 3: Parallel execution - Assistant and Success Check
-      let assistantText: string | undefined
-      let check: { success?: boolean } | undefined
-      
-      try {
-        // Run assistant and success check in parallel
-        const [assistantResponse, successCheckResponse] = await Promise.all([
-          apiClient.chatAssistant(chatPayload).catch((e) => {
-            console.error("Assistant error", e)
-            return { text: "", translateEn: "" }
-          }),
-          apiClient.chatCheckSuccess(chatPayload).catch((e) => {
-            console.error("Success check error", e)
-            return { success: false }
-          })
-        ])
-
-        // Handle assistant response
-        assistantText = assistantResponse.text
-        if (assistantText && assistantText.trim().length > 0) {
-          setAgentSpeaking(true)
-          setMessages(prev => prev.concat([{ 
-            id: `assistant-${Date.now()}`, 
-            role: "assistant", 
-            text: assistantText!,
-            translateEn: assistantResponse.translateEn
-          }]))
-
-          // Assistant 응답 시 힌트 자동 숨김
-          setShowHint(false)
-
-          // Stream TTS for the entire text as a single audio stream
-          try {
-            const audioUrl = await apiClient.getOrCreateTtsObjectUrl(assistantText, {
-              sessionId,
-              voice: "nova",
-              format: "mp3",
-            })
-            const audio = new Audio(audioUrl)
-            audioRef.current = audio
-            await new Promise<void>((resolve) => {
-              audio.onended = () => resolve()
-              audio.onerror = () => resolve()
-              audio.play().catch(() => resolve())
-            })
-          } catch {}
-        }
-
-        // Handle success check response
-        check = successCheckResponse
-
-      } catch (e) {
-        console.error("Parallel execution error", e)
-      } finally {
-        setAgentSpeaking(false)
-        setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
-      }
-
-      // Handle task progress based on check-success
-      if (check?.success) {
-        markCurrentTaskSuccess()
-        setTimeout(() => {
-          gotoNextTask()
-          saveProgress()
-          
-          // Check if all tasks are completed
-          if (currentTaskIndex >= progress.total - 1) {
-            setTimeout(() => {
-              setShowSuccessPopup(true)
-            }, 1000)
-          }
-        }, 1500)
-      } else {
-        // Increment attempts for failed attempts
-        incrementAttempts()
-      }
+      // 나머지 처리는 공통 로직 사용
+      await processChatLogic(userText)
 
     } catch (error) {
       console.error("Error processing audio:", error)
@@ -973,6 +1133,12 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                               <span className="text-sm opacity-70 mb-2 block">
                                 Recording... {Math.floor(recordingDuration / 60)}:{(recordingDuration % 60).toString().padStart(2, '0')}
                               </span>
+                              {isVadActive && (
+                                <div className="text-xs opacity-60 mb-2">
+                                  👂 Listening for speech...
+                                  {vadUtterances.length > 0 && ` (${vadUtterances.length} segments)`}
+                                </div>
+                              )}
                               <AudioVisualization />
                             </>
                           )}
@@ -1009,6 +1175,34 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           </AnimatePresence>
         </div>
       </div>
+
+      {/* VAD Error Display */}
+      <AnimatePresence>
+        {vadErrorMessage && (
+          <motion.div
+            className="px-4 pb-2"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
+            <div className="max-w-2xl mx-auto">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <div className="w-5 h-5 rounded-full bg-yellow-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="w-2 h-2 rounded-full bg-white"></div>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-yellow-900">VAD 경고</p>
+                    <p className="text-sm text-yellow-700 mt-1">
+                      VAD 기능이 비활성화되었습니다. 전체 오디오로 처리됩니다. ({vadErrorMessage})
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Feedback Display */}
       <AnimatePresence>
