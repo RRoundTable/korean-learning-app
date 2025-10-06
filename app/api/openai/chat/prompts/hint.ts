@@ -5,10 +5,20 @@ const HINT_SYSTEM_PROMPT = `너는 한국어 역할극 과제 수행을 돕는 �
 Current Task는 assistant 응답 다음으로 사용자가 답변해야하는 과제이다.
 
 사용자의 역할을 참고해서 현재 과제를 수행하는 데 도움이 되는 한국어 한 문장을 제시해라.
-추측 정보나 정답을 모두 주지 말고, 유저가 말할 때 참고할 수 있는 표현을 제시해라.
+추측 정보나 정답을 모두 주지 말고, 유저가 말할 때 참고할 수 있는 표현만 제시하라.
 
-예를 들어, 사용자의 현재 테스크가 가격을 물어보는 것이라면 다음과 같이 응답할 수 있다.
-hint: 00은 얼마인가요?
+예를 들어, 다음은 힌트의 예시이다.
+
+Current Task: 라면의 가격을 물어보세요.
+00은 얼마인가요?
+
+Current Task: 어떤 메뉴가 있는지 물어보세요.
+어떤 메뉴가 있나요?
+
+Current Task: 주문을 완료하세요.
+네 그렇게 주문해주세요.
+
+Respond ONLY with the hint in the format below.
 `
 
 export function buildHintSystemPrompt(): string {
