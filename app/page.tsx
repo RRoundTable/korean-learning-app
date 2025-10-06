@@ -36,6 +36,8 @@ interface Scenario {
   isFree: boolean
   initialMessage?: InitialMessage
   tasks?: Task[]
+  ttsVoice?: string
+  ttsInstructions?: string
 }
 
 export default function KoreanLearningApp() {
@@ -69,6 +71,8 @@ export default function KoreanLearningApp() {
           en: "Ask your new friend out for coffee next weekend",
         },
       ],
+      ttsVoice: "nova",
+      ttsInstructions: "Speak in a warm, friendly tone as if meeting a new friend. Be enthusiastic and welcoming. Sound like you're genuinely excited to meet someone new.",
     },
     {
       id: 2,
@@ -108,6 +112,8 @@ export default function KoreanLearningApp() {
         { ko: "제로콜라가 있는지 물어보세요.", en: "Ask if there is zero cola" },
         { ko: "주문을 완료하세요.", en: "Complete the order" },
       ],
+      ttsVoice: "alloy",
+      ttsInstructions: "Speak in a professional, helpful service tone. Be clear and patient with customers. Sound like a friendly fast-food employee who wants to help.",
     },
     {
       id: 3,
@@ -132,6 +138,8 @@ export default function KoreanLearningApp() {
         { ko: "가격과 할인 혜택에 대해 물어보세요", en: "Ask about the price and discount benefits" },
         { ko: "구매를 결정하고 결제 방법을 확인해보세요", en: "Decide to purchase and check payment methods" },
       ],
+      ttsVoice: "coral",
+      ttsInstructions: "Speak in an energetic, helpful retail assistant tone. Be enthusiastic about products and helpful to customers. Sound like a knowledgeable shoe salesperson.",
     },
     {
       id: 4,
@@ -156,6 +164,8 @@ export default function KoreanLearningApp() {
         { ko: "디저트나 간식을 추가로 주문해보세요", en: "Add desserts or snacks to your order" },
         { ko: "가격을 확인하고 결제해보세요", en: "Check the price and make payment" },
       ],
+      ttsVoice: "shimmer",
+      ttsInstructions: "Speak in a calm, professional barista tone. Be knowledgeable and welcoming. Sound like an experienced coffee shop barista who loves their craft.",
     },
   ]
 

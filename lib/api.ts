@@ -73,6 +73,7 @@ export interface OpenAiTtsRequest {
 
 export interface OpenAiTtsStreamOptions extends OpenAiTtsRequest {
   sessionId: string
+  instructions?: string
 }
 
 export interface TranslateRequest {
@@ -227,6 +228,7 @@ export class ApiClient {
     if (options.voice) params.set('voice', options.voice)
     if (options.format) params.set('format', options.format)
     if (options.sampleRate != null) params.set('sampleRate', String(options.sampleRate))
+    if (options.instructions) params.set('instructions', options.instructions)
     const url = `${this.baseUrl}/api/openai/text-to-speech?${params.toString()}`
     this.logRequest('GET', '/api/openai/text-to-speech', Object.fromEntries(params))
     return url
@@ -247,7 +249,7 @@ export class ApiClient {
 
   // Get cached TTS URL or generate new one
   getCachedTtsUrl(text: string, options: Omit<OpenAiTtsStreamOptions, 'text'>): string {
-    const cacheKey = `${text}|${options.sessionId}|${options.voice || 'nova'}|${options.format || 'mp3'}`
+    const cacheKey = `${text}|${options.sessionId}|${options.voice || 'nova'}|${options.format || 'mp3'}|${options.instructions || 'default'}`
     
     if (this.audioCache.has(cacheKey)) {
       return this.audioCache.get(cacheKey)!
@@ -260,7 +262,7 @@ export class ApiClient {
 
   // Fetch once and cache as Blob object URL to avoid repeat API calls
   async getOrCreateTtsObjectUrl(text: string, options: Omit<OpenAiTtsStreamOptions, 'text'>): Promise<string> {
-    const cacheKey = `blob|${text}|${options.sessionId}|${options.voice || 'nova'}|${options.format || 'mp3'}`
+    const cacheKey = `blob|${text}|${options.sessionId}|${options.voice || 'nova'}|${options.format || 'mp3'}|${options.instructions || 'default'}`
     const cached = this.audioCache.get(cacheKey)
     if (cached) return cached
 

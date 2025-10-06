@@ -10,6 +10,7 @@ export const TtsQuerySchema = z.object({
   voice: z.string().default("alloy").optional(),
   format: z.enum(["mp3", "wav"]).default("mp3").optional(),
   sampleRate: z.coerce.number().int().min(8000).max(48000).default(24000).optional(),
+  instructions: z.string().optional(),
 })
 export type TtsQuery = z.infer<typeof TtsQuerySchema>
 
@@ -30,23 +31,31 @@ export async function GET(request: NextRequest) {
       const message = parseResult.error.flatten().formErrors.join("; ") || "Invalid input"
       return NextResponse.json({ error: message }, { status: 400 })
     }
-    const { sessionId, text, voice = "alloy", format = "mp3", sampleRate = 24000 } = parseResult.data
+    const { sessionId, text, voice = "alloy", format = "mp3", sampleRate = 24000, instructions } = parseResult.data
 
     // Call OpenAI Audio Speech API
     const model = process.env.OPENAI_TTS_MODEL || "tts-1"
+    
+    const requestBody: any = {
+      model,
+      input: text,
+      voice,
+      format, // mp3 | wav
+      sample_rate: sampleRate,
+    }
+    
+    // Add instructions if available
+    if (instructions) {
+      requestBody.instructions = instructions
+    }
+    
     const openaiResp = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model,
-        input: text,
-        voice,
-        format, // mp3 | wav
-        sample_rate: sampleRate,
-      }),
+      body: JSON.stringify(requestBody),
     })
 
     if (!openaiResp.ok || !openaiResp.body) {
@@ -76,7 +85,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { text, voice = "alloy", format = "mp3", sampleRate = 24000 } = body
+    const { text, voice = "alloy", format = "mp3", sampleRate = 24000, instructions } = body
 
     if (!text) {
       return NextResponse.json({ error: "text is required" }, { status: 400 })
@@ -84,19 +93,27 @@ export async function POST(request: NextRequest) {
 
     // Call OpenAI Audio Speech API
     const model = process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts"
+    
+    const requestBody: any = {
+      model,
+      input: text,
+      voice,
+      format, // mp3 | wav
+      sample_rate: sampleRate,
+    }
+    
+    // Add instructions if available
+    if (instructions) {
+      requestBody.instructions = instructions
+    }
+    
     const openaiResp = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model,
-        input: text,
-        voice,
-        format, // mp3 | wav
-        sample_rate: sampleRate,
-      }),
+      body: JSON.stringify(requestBody),
     })
 
     if (!openaiResp.ok) {

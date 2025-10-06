@@ -168,8 +168,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         setAgentSpeaking(true)
         const audioUrl = await apiClient.getOrCreateTtsObjectUrl(text, {
           sessionId,
-          voice: "nova",
+          voice: scenario.ttsVoice || "nova",
           format: "mp3",
+          instructions: scenario.ttsInstructions,
         })
 
         if (!isActive) return
@@ -495,8 +496,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         try {
           const audioUrl = await apiClient.getOrCreateTtsObjectUrl(assistantText, {
             sessionId,
-            voice: "nova",
+            voice: scenario.ttsVoice || "nova",
             format: "mp3",
+            instructions: scenario.ttsInstructions,
           })
           const audio = new Audio(audioUrl)
           audioRef.current = audio
@@ -782,8 +784,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       // Fetch once and cache as Blob object URL
       const audioUrl = await apiClient.getOrCreateTtsObjectUrl(hint, {
         sessionId,
-        voice: "nova",
+        voice: scenario.ttsVoice || "nova",
         format: "mp3",
+        instructions: scenario.ttsInstructions,
       })
 
       const audio = new Audio(audioUrl)
@@ -1066,8 +1069,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                                 try {
                                   const audioUrl = await apiClient.getOrCreateTtsObjectUrl(message.text, {
                                     sessionId,
-                                    voice: "nova",
+                                    voice: scenario.ttsVoice || "nova",
                                     format: "mp3",
+                                    instructions: scenario.ttsInstructions,
                                   })
                                   const audio = new Audio(audioUrl)
                                   audio.play().catch(() => {})
