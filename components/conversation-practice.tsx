@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -74,9 +74,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   const [showGoal, setShowGoal] = useState<boolean>(false)
   const [translatingMessageId, setTranslatingMessageId] = useState<string | null>(null)
   
-  // VAD 관련 상태
-  const [vadUtterances, setVadUtterances] = useState<Array<{ url: string; durationMs: number; timestamp: number }>>([])
-  const [isVadActive, setIsVadActive] = useState(false)
+  // VAD 관련 상태 (UI에서 제거, 내부 처리만 유지)
   const [vadErrorMessage, setVadErrorMessage] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>(() => {
     const defaultInitialMessage = {
@@ -112,41 +110,37 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   const vadUtterancesRef = useRef<Array<{ url: string; durationMs: number; timestamp: number }>>([])
   const recordingStartTimeRef = useRef<number>(0)
   
-  // VAD 훅 초기화
+  // VAD 훅 초기화 (UI 상태 제거)
   const {
-    state: vadState,
-    level: vadLevel,
-    probability: vadProbability,
-    isSpeaking: vadIsSpeaking,
     lastUtterance: vadLastUtterance,
     error: vadError,
     start: vadStart,
     stop: vadStop,
-    setSpeakingGate: vadSetSpeakingGate,
   } = useVad()
 
   // TEMP: disable initial TTS autoplay
   const ENABLE_INITIAL_TTS = false
 
-  // VAD 발화 구간 처리
+  // VAD 발화 구간 처리 - UI 상태 제거로 리렌더링 완전 제거
   useEffect(() => {
-    if (vadLastUtterance && isVadActive) {
+    if (vadLastUtterance) {
       const utterance = {
         url: vadLastUtterance.url,
         durationMs: vadLastUtterance.durationMs,
         timestamp: Date.now()
       }
-      setVadUtterances(prev => [...prev, utterance])
-      // ref에도 저장하여 최신 상태 보장
+      
+      // ref에만 저장 (UI 상태 업데이트 없음)
       vadUtterancesRef.current = [...vadUtterancesRef.current, utterance]
     }
-  }, [vadLastUtterance, isVadActive])
+  }, [vadLastUtterance])
 
-  // VAD 에러 처리
+  // VAD 에러 처리 - 리렌더링 최소화
   useEffect(() => {
     if (vadError) {
-      setVadErrorMessage(vadError)
+      // 에러는 즉시 처리하되, 상태 업데이트는 최소화
       console.error("❌ VAD Error:", vadError)
+      setVadErrorMessage(vadError)
     }
   }, [vadError])
 
@@ -237,10 +231,8 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       setCancelledMessageId(null)
       isCancelledRef.current = false
       
-      // VAD 발화 구간 초기화
-      setVadUtterances([])
-      vadUtterancesRef.current = [] // ref도 초기화
-      setIsVadActive(true)
+      // VAD 발화 구간 초기화 (UI 상태 제거)
+      vadUtterancesRef.current = [] // ref만 초기화
       
       // 발화 시작 시 힌트 자동 숨김
       if (showHint) {
@@ -283,7 +275,6 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         
         // VAD 중지
         vadStop()
-        setIsVadActive(false)
         
         // 취소 상태 확인하여 분기 처리 (ref 사용으로 최신 상태 참조)
         console.log('onstop event - isCancelledRef.current:', isCancelledRef.current)
@@ -295,22 +286,12 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           // 정상 중단된 경우: VAD 발화 구간이 있으면 사용, 없으면 전체 오디오 사용
           console.log('🎙️ 녹음 완료 - 오디오 분석 시작')
           
-          // VAD 분석 결과 요약 출력 (ref 사용으로 최신 상태 보장)
+          // VAD 분석 결과 요약 출력 (UI 상태 제거로 단순화)
           const currentUtterances = vadUtterancesRef.current
-          const totalSpeechDuration = currentUtterances.reduce((total, utterance) => total + utterance.durationMs, 0)
-          
-          // 정확한 녹음 시간 계산 (밀리초 단위)
-          const actualRecordingDuration = (Date.now() - recordingStartTimeRef.current) / 1000
-          const speechRatio = actualRecordingDuration > 0 ? ((totalSpeechDuration / 1000) / actualRecordingDuration * 100) : 0
           
           console.log('📊 === VAD 분석 결과 요약 ===')
           console.log(`🎯 처리 방식: ${currentUtterances.length > 0 ? 'VAD 발화 구간 사용' : '전체 오디오 사용'}`)
-          console.log(`⏱️ 전체 녹음 시간: ${actualRecordingDuration.toFixed(2)}초 (정확한 시간)`)
-          console.log(`⏱️ 타이머 시간: ${recordingDuration.toFixed(2)}초 (UI 표시용)`)
           console.log(`🎤 감지된 발화 구간: ${currentUtterances.length}개`)
-          console.log(`🗣️ 총 발화 시간: ${(totalSpeechDuration / 1000).toFixed(2)}초`)
-          console.log(`📈 발화 비율: ${speechRatio.toFixed(1)}%`)
-          console.log(`🔧 VAD 상태: ${vadState}`)
           if (vadErrorMessage) {
             console.log(`⚠️ VAD 에러: ${vadErrorMessage}`)
           }
@@ -718,7 +699,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     }
   }
 
-  const handleMicPress = () => {
+  const handleMicPress = useCallback(() => {
     if (textOnlyMode) return
     if (isAgentSpeaking) {
       // Don't allow recording while agent is speaking
@@ -733,10 +714,10 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     } else if (!isProcessing) {
       startRecording()
     }
-  }
+  }, [textOnlyMode, isAgentSpeaking, isRecording, isProcessing])
 
 
-  const handleHint = async () => {
+  const handleHint = useCallback(async () => {
     const next = !showHint
     setShowHint(next)
     if (!next) return
@@ -786,7 +767,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     } finally {
       setIsHintLoading(false)
     }
-  }
+  }, [showHint, hint, hintTaskIndex, currentTaskIndex, messages, typedMessage, sessionId, scenario, progress, currentTask])
 
   const handleSave = () => {
     setIsSaved(!isSaved)
@@ -889,7 +870,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   }
 
 
-  const AudioVisualization = () => (
+  const AudioVisualization = useMemo(() => (
     <div className="flex items-center justify-center gap-1 py-4">
       {[...Array(20)].map((_, i) => (
         <div
@@ -903,10 +884,10 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         />
       ))}
     </div>
-  )
+  ), [])
 
   // Local header components: GoalPanel and TaskRail
-  const GoalPanel = ({ goal, goalEn }: { goal?: string; goalEn?: string }) => (
+  const GoalPanel = useMemo(() => ({ goal, goalEn }: { goal?: string; goalEn?: string }) => (
     <div className="flex-1 min-w-0 md:max-w-[60%]">
       <div className="flex items-center justify-end">
         <Button
@@ -945,9 +926,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         )}
       </AnimatePresence>
     </div>
-  )
+  ), [showGoal, showAssistantTranslation])
 
-  const TaskRail = () => (
+  const TaskRail = useMemo(() => (
     <div className="flex flex-col md:items-start gap-1 md:gap-2 md:pr-4">
       <div className="flex items-center gap-2 flex-wrap">
         <div className="text-sm md:text-lg font-semibold text-foreground line-clamp-2 break-words">
@@ -1003,7 +984,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         </div>
       )}
     </div>
-  )
+  ), [currentTask, progress, showAssistantTranslation, currentTaskIndex])
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -1040,8 +1021,8 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           transition={{ duration: 0.25 }}
         >
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-            <TaskRail />
-            <GoalPanel goal={scenario?.goal} goalEn={scenario?.goalEn} />
+            {TaskRail}
+            {GoalPanel({ goal: scenario?.goal, goalEn: scenario?.goalEn })}
           </div>
         </motion.div>
       </AnimatePresence>
@@ -1133,13 +1114,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                               <span className="text-sm opacity-70 mb-2 block">
                                 Recording... {Math.floor(recordingDuration / 60)}:{(recordingDuration % 60).toString().padStart(2, '0')}
                               </span>
-                              {isVadActive && (
-                                <div className="text-xs opacity-60 mb-2">
-                                  👂 Listening for speech...
-                                  {vadUtterances.length > 0 && ` (${vadUtterances.length} segments)`}
-                                </div>
-                              )}
-                              <AudioVisualization />
+                              {AudioVisualization}
                             </>
                           )}
                           {isProcessing && (
@@ -1176,7 +1151,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         </div>
       </div>
 
-      {/* VAD Error Display */}
+      {/* VAD Error Display - 단순화 */}
       <AnimatePresence>
         {vadErrorMessage && (
           <motion.div
@@ -1192,9 +1167,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                     <div className="w-2 h-2 rounded-full bg-white"></div>
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-yellow-900">VAD 경고</p>
+                    <p className="text-sm font-medium text-yellow-900">음성 인식 경고</p>
                     <p className="text-sm text-yellow-700 mt-1">
-                      VAD 기능이 비활성화되었습니다. 전체 오디오로 처리됩니다. ({vadErrorMessage})
+                      고급 음성 인식 기능이 비활성화되었습니다. 전체 오디오로 처리됩니다.
                     </p>
                   </div>
                 </div>
