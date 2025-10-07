@@ -118,15 +118,9 @@ export function buildAssistantMessages(options: {
     history.forEach((m) => messages.push({ role: m.role, content: m.text }))
   }
 
-  const last = messages[messages.length - 1]
-  const shouldAppend = !last || last.role !== "user" || (String(last.content || "").trim() !== String(userMessage).trim())
-  if (shouldAppend) {
-    // Format user message to include current task information
-    const formattedUserMessage = currentTask 
-      ? `current task: ${currentTask.ko}, user_message: ${userMessage}`
-      : userMessage
-    messages.push({ role: "user", content: formattedUserMessage })
-  }
+  // Always append the explicit userMessage provided by the client.
+  // Client is responsible for any formatting (e.g., embedding current task).
+  messages.push({ role: "user", content: userMessage })
 
   return messages
 }

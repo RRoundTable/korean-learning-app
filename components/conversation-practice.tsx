@@ -24,6 +24,7 @@ interface Message {
   id: string
   role: "user" | "assistant"
   text: string
+  displayText?: string // UI display용 (user의 경우 current task 제외한 원본)
   translation?: string
   translateEn?: string
   isWaiting?: boolean
@@ -251,10 +252,10 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
 
       // 현재 대기 중인 메시지 ID 찾기
       const waitingMessage = messages.find(msg => msg.role === "user" && msg.isWaiting)
-      console.log('Found waiting message:', waitingMessage)
+      
       if (waitingMessage) {
         setCurrentlyRecordingMessageId(waitingMessage.id)
-        console.log('Set currentlyRecordingMessageId to:', waitingMessage.id)
+        
       }
 
       // VAD 시작
@@ -287,25 +288,23 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         vadStop()
         
         // 취소 상태 확인하여 분기 처리 (ref 사용으로 최신 상태 참조)
-        console.log('onstop event - isCancelledRef.current:', isCancelledRef.current)
+        
         if (isCancelledRef.current) {
           // 취소된 경우: processAudio 호출하지 않음
-          console.log('Recording was cancelled, skipping processAudio')
+          
           handleCancelledRecording()
         } else {
           // 정상 중단된 경우: VAD 발화 구간이 있으면 사용, 없으면 전체 오디오 사용
-          console.log('🎙️ 녹음 완료 - 오디오 분석 시작')
+          
           
           // VAD 분석 결과 요약 출력 (UI 상태 제거로 단순화)
           const currentUtterances = vadUtterancesRef.current
           
-          console.log('📊 === VAD 분석 결과 요약 ===')
-          console.log(`🎯 처리 방식: ${currentUtterances.length > 0 ? 'VAD 발화 구간 사용' : '전체 오디오 사용'}`)
-          console.log(`🎤 감지된 발화 구간: ${currentUtterances.length}개`)
+          
           if (vadErrorMessage) {
-            console.log(`⚠️ VAD 에러: ${vadErrorMessage}`)
+            
           }
-          console.log('===============================')
+          
           
           if (currentUtterances.length > 0) {
             await processVadUtterances()
@@ -410,18 +409,18 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       setIsProcessing(false)
 
       // Update user message
-      console.log('Updating message with VAD result:', combinedText)
+      
       setMessages(prev => {
         let messageUpdated = false
         const updatedMessages = prev.map(msg => {
           if (!messageUpdated && msg.role === "user" && msg.isWaiting) {
-            console.log('Found message to update:', msg.id)
+            
             messageUpdated = true
             return { ...msg, text: combinedText, isWaiting: false }
           }
           return msg
         })
-        console.log('Updated messages:', updatedMessages)
+        
         return updatedMessages
       })
 
@@ -436,17 +435,45 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   }
 
   const processChatLogic = async (userText: string) => {
+    
+    
+    // Format user message with current task FIRST
+    const taskKo = currentTask?.ko ?? (scenario?.tasks?.[currentTaskIndex]?.ko as string | undefined)
+    
+    const formattedUserMessage = taskKo 
+      ? `current task: ${taskKo}, user_message: ${userText}`
+      : userText
+    
+    
+    // Update the last waiting message with the FORMATTED text (so it persists in memoryHistory)
+    // Store raw userText in displayText for UI display
+    setMessages(prev => {
+      let messageUpdated = false
+      return prev.map(msg => {
+        if (!messageUpdated && msg.role === "user" && msg.isWaiting) {
+          messageUpdated = true
+          return { ...msg, text: formattedUserMessage, displayText: userText, isWaiting: false }
+        }
+        return msg
+      })
+    })
+    
     // Step 2: Prepare shared conversation snapshot
-    const memoryHistory = messages
+    const memoryHistoryAll = messages
       .filter(msg => !msg.isWaiting && msg.text)
-      .map(msg => ({ 
-        role: msg.role, 
-        text: msg.isFeedback ? `feedback: ${msg.text}` : msg.text 
-      }))
+      .map(msg => ({ role: msg.role, text: msg.isFeedback ? `feedback: ${msg.text}` : msg.text }))
+    // Drop the last user turn if it equals the raw userText, so the formatted userMessage becomes the final turn
+    const memoryHistory = (() => {
+      const last = memoryHistoryAll[memoryHistoryAll.length - 1]
+      if (last && last.role === 'user' && String(last.text).trim() === String(userText).trim()) {
+        return memoryHistoryAll.slice(0, -1)
+      }
+      return memoryHistoryAll
+    })()
 
     const chatPayload = {
       sessionId,
-      userMessage: userText,
+      userMessage: formattedUserMessage,
       scenarioContext: {
         scenarioId: scenario.id,
         title: scenario.title,
@@ -483,6 +510,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     
     try {
       // Single API call for unified response
+      
       unifiedResponse = await apiClient.chatAssistant(chatPayload).catch((e) => {
         console.error("Assistant error", e)
         return { 
@@ -539,8 +567,8 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         }
       }
 
-      // Latch per-task successes if provided
-      if (Array.isArray(unifiedResponse?.task_success)) {
+      // Latch per-task successes if provided and non-empty
+      if (Array.isArray(unifiedResponse?.task_success) && unifiedResponse!.task_success!.length > 0) {
         latchTaskSuccesses(unifiedResponse!.task_success!)
       }
 
@@ -563,7 +591,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     }
 
     // Attempts increment: only if task_success exists and current task remains incomplete
-    if (Array.isArray(unifiedResponse?.task_success)) {
+    if (Array.isArray(unifiedResponse?.task_success) && unifiedResponse!.task_success!.length > currentTaskIndex) {
       const arr = unifiedResponse!.task_success!
       const stillIncomplete = arr[currentTaskIndex] === false
       if (stillIncomplete) incrementAttempts()
@@ -589,19 +617,19 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       setIsProcessing(false)
 
       // Update user message - find and update the waiting user message
-      console.log('Updating message:', { currentlyRecordingMessageId, userText })
+      
       setMessages(prev => {
         let messageUpdated = false
         const updatedMessages = prev.map(msg => {
           // Update the first waiting user message (only once)
           if (!messageUpdated && msg.role === "user" && msg.isWaiting) {
-            console.log('Found message to update:', msg.id)
+            
             messageUpdated = true
             return { ...msg, text: userText, isWaiting: false }
           }
           return msg
         })
-        console.log('Updated messages:', updatedMessages)
+        
         return updatedMessages
       })
 
@@ -616,18 +644,28 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   }
 
   const sendTypedMessage = async (userText: string) => {
+    
     if (!userText.trim()) return
     setIsProcessing(true)
     setTypedMessage("")
 
     try {
-      // Update user message - find and update the waiting user message
+      // Format user message with current task FIRST
+      const taskKo = currentTask?.ko ?? (scenario?.tasks?.[currentTaskIndex]?.ko as string | undefined)
+      
+      const formattedUserMessage = taskKo 
+        ? `current task: ${taskKo}, user_message: ${userText}`
+        : userText
+      
+
+      // Update user message with the FORMATTED text (so it persists in memoryHistory)
+      // Store raw userText in displayText for UI display
       setMessages(prev => {
         let messageUpdated = false
         const updatedMessages = prev.map(msg => {
           if (!messageUpdated && msg.role === "user" && msg.isWaiting) {
             messageUpdated = true
-            return { ...msg, text: userText, isWaiting: false }
+            return { ...msg, text: formattedUserMessage, displayText: userText, isWaiting: false }
           }
           return msg
         })
@@ -635,16 +673,20 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       })
 
       // Prepare conversation snapshot
-      const memoryHistory = messages
+      const memoryHistoryAll = messages
         .filter(msg => !msg.isWaiting && msg.text)
-        .map(msg => ({ 
-          role: msg.role, 
-          text: msg.isFeedback ? `feedback: ${msg.text}` : msg.text 
-        }))
+        .map(msg => ({ role: msg.role, text: msg.isFeedback ? `feedback: ${msg.text}` : msg.text }))
+      const memoryHistory = (() => {
+        const last = memoryHistoryAll[memoryHistoryAll.length - 1]
+        if (last && last.role === 'user' && String(last.text).trim() === String(userText).trim()) {
+          return memoryHistoryAll.slice(0, -1)
+        }
+        return memoryHistoryAll
+      })()
 
       const chatPayload = {
         sessionId,
-        userMessage: userText,
+        userMessage: formattedUserMessage,
         scenarioContext: {
           scenarioId: scenario.id,
           title: scenario.title,
@@ -681,6 +723,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       
       try {
         // Single API call for unified response
+        
         unifiedResponse = await apiClient.chatAssistant(chatPayload).catch((e) => {
           console.error("Assistant error", e)
           return { 
@@ -763,10 +806,10 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     const next = !showHint
     setShowHint(next)
     if (!next) return
-    console.log('[Hint] button clicked. showHint ->', next, 'currentTaskIndex:', currentTaskIndex)
+    
     // If we already have a hint for THIS task index, do not refetch
     if (hint && hintTaskIndex === currentTaskIndex) {
-      console.log('[Hint] using cached hint for task', hintTaskIndex)
+      
       return
     }
     try {
@@ -777,9 +820,15 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           role: msg.role, 
           text: msg.isFeedback ? `feedback: ${msg.text}` : msg.text 
         }))
+      const lastUserText = messages.findLast?.((m) => m.role === 'user' && !m.isWaiting && !!m.text)?.text || typedMessage || ''
+      const taskKo = currentTask?.ko ?? (scenario?.tasks?.[currentTaskIndex]?.ko as string | undefined)
+      const formattedHintUserMessage = taskKo 
+        ? `current task: ${taskKo}, user_message: ${lastUserText}`
+        : lastUserText
+
       const payload = {
         sessionId,
-        userMessage: messages.findLast?.((m) => m.role === 'user' && !m.isWaiting && !!m.text)?.text || typedMessage || '',
+        userMessage: formattedHintUserMessage,
         scenarioContext: {
           scenarioId: scenario.id,
           title: scenario.title,
@@ -801,12 +850,12 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         } : undefined,
         memoryHistory,
       }
-      console.log('[Hint] calling chatHint with payload')
+      
       const res = await apiClient.chatHint(payload as any)
       setHint(res.hint)
       setHintTranslateEn(res.hintTranslateEn || null)
       setHintTaskIndex(currentTaskIndex)
-      console.log('[Hint] received hint for task', currentTaskIndex)
+      
     } catch (e) {
       console.error("Hint request failed", e)
     } finally {
@@ -861,7 +910,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
 
   const handleSuccessPopupAnalyze = () => {
     // TODO: Implement conversation analysis functionality
-    console.log("Analyze conversation")
+    
     setShowSuccessPopup(false)
   }
 
@@ -1167,10 +1216,10 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                             </div>
                           )}
                           {message.text && !message.isWaiting && !message.isCancelled && (
-                            <p className="font-medium">{message.text}</p>
+                            <p className="font-medium">{message.displayText || message.text}</p>
                           )}
                           {message.text && message.isWaiting && isProcessing && (
-                            <p className="font-medium opacity-70">{message.text}</p>
+                            <p className="font-medium opacity-70">{message.displayText || message.text}</p>
                           )}
                           {message.isCancelled && (
                             <motion.p 
@@ -1334,7 +1383,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                   size="lg"
                   className="w-16 h-16 rounded-full bg-destructive/10 border-destructive/30 hover:bg-destructive/20"
                   onClick={() => {
-                    console.log('Cancel button clicked')
+                    
                     setIsCancelled(true)
                     isCancelledRef.current = true
                     stopRecording()
@@ -1413,6 +1462,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                 if (e.key === 'Enter') {
                   const text = typedMessage.trim()
                   if (!text || isProcessing || isAgentSpeaking) return
+                  
                   ;(async () => {
                     await sendTypedMessage(text)
                   })()
@@ -1423,6 +1473,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
               onClick={async () => {
                 const text = typedMessage.trim()
                 if (!text || isProcessing || isAgentSpeaking) return
+                
                 await sendTypedMessage(text)
               }}
               disabled={!typedMessage.trim() || isProcessing || isAgentSpeaking}
