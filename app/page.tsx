@@ -106,8 +106,8 @@ export default function KoreanLearningApp() {
         { ko: "제로콜라가 있는지 물어보세요.", en: "Ask if there is zero cola" },
         { ko: "원하는 버거 세트 주문을 완료하세요.", en: "Complete the order" },
       ],
-      ttsVoice: "alloy",
-      ttsInstructions: "Speak in a professional, helpful service tone. Be clear and patient with customers. Sound like a friendly fast-food employee who wants to help.",
+      ttsVoice: "nova",
+      ttsInstructions: "Speak in a friendly, helpful service tone. Be enthusiastic and welcoming. Sound like a friendly fast-food employee who wants to help.",
     },
     {
       id: 3,
