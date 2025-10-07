@@ -473,12 +473,12 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       memoryHistory,
     }
 
-    // Step 3: Unified assistant response (includes success check)
+    // Step 3: Assistant response (validated shape)
       let unifiedResponse: { 
         msg: string | null; 
-        success: boolean; 
         show_msg: boolean; 
         feedback: string | null;
+        task_success?: boolean[];
       } | undefined
     
     try {
@@ -487,9 +487,8 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         console.error("Assistant error", e)
         return { 
           msg: null, 
-          success: false, 
           show_msg: false, 
-          feedback: "죄송합니다. 오류가 발생했습니다. 다시 시도해주세요." 
+          feedback: "죄송합니다. 오류가 발생했습니다. 다시 시도해주세요.",
         }
       })
 
@@ -541,9 +540,8 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       }
 
       // Latch per-task successes if provided
-      if (Array.isArray((unifiedResponse as any)?.task_success)) {
-        const arr = (unifiedResponse as any).task_success as boolean[]
-        latchTaskSuccesses(arr)
+      if (Array.isArray(unifiedResponse?.task_success)) {
+        latchTaskSuccesses(unifiedResponse!.task_success!)
       }
 
       // Show feedback message if available (regardless of show_msg value)
@@ -564,18 +562,11 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
     }
 
-    // Handle task progress based on unified response
-    if (unifiedResponse?.success) {
-      markCurrentTaskSuccess()
-      setTimeout(() => {
-        gotoNextTask()
-        saveProgress()
-        
-        // Success popup is controlled by progress-based effect above
-      }, 1500)
-    } else {
-      // Increment attempts for failed attempts
-      incrementAttempts()
+    // Attempts increment: only if task_success exists and current task remains incomplete
+    if (Array.isArray(unifiedResponse?.task_success)) {
+      const arr = unifiedResponse!.task_success!
+      const stillIncomplete = arr[currentTaskIndex] === false
+      if (stillIncomplete) incrementAttempts()
     }
   }
 
@@ -680,12 +671,12 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         memoryHistory,
       }
 
-      // Unified assistant response (includes success check)
+      // Assistant response (validated shape)
       let unifiedResponse: { 
         msg: string | null; 
-        success: boolean; 
         show_msg: boolean; 
         feedback: string | null;
+        task_success?: boolean[];
       } | undefined
       
       try {
@@ -694,9 +685,8 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           console.error("Assistant error", e)
           return { 
             msg: null, 
-            success: false, 
             show_msg: false, 
-            feedback: "죄송합니다. 오류가 발생했습니다. 다시 시도해주세요." 
+            feedback: "죄송합니다. 오류가 발생했습니다. 다시 시도해주세요.",
           }
         })
 
@@ -723,6 +713,11 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           }]))
         }
         
+        // Latch per-task successes if provided
+        if (Array.isArray(unifiedResponse?.task_success)) {
+          latchTaskSuccesses(unifiedResponse!.task_success!)
+        }
+
 
       } catch (e) {
         console.error("Unified execution error", e)
@@ -731,16 +726,11 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
       }
 
-      // Handle task progress based on unified response
-      if (unifiedResponse?.success) {
-        markCurrentTaskSuccess()
-        setTimeout(() => {
-          gotoNextTask()
-          saveProgress()
-          // Success popup is controlled by progress-based effect above
-        }, 1500)
-      } else {
-        incrementAttempts()
+      // Attempts increment: only if task_success exists and current task remains incomplete
+      if (Array.isArray(unifiedResponse?.task_success)) {
+        const arr = unifiedResponse!.task_success!
+        const stillIncomplete = arr[currentTaskIndex] === false
+        if (stillIncomplete) incrementAttempts()
       }
 
     } catch (error) {

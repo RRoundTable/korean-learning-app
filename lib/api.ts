@@ -142,13 +142,12 @@ export class ApiClient {
 
   // Deprecated chat() removed. Use chatAssistant() and chatMetadata() instead.
 
-  // Conversation assistant response (includes success check). Returns conversation response format
+  // Conversation assistant response (validated shape)
   async chatAssistant(request: ChatRequest): Promise<{ 
     msg: string | null; 
-    success: boolean; 
     show_msg: boolean; 
     feedback: string | null;
-    task_success?: boolean[];
+    task_success: boolean[];
     createdAt?: string;
     usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
   }> {
@@ -167,28 +166,29 @@ export class ApiClient {
     const data = await response.json()
     this.logResponse('POST', '/api/openai/chat/assistant', data)
     
-    // Handle both new conversation format and legacy format for backward compatibility
-    if (data.msg !== undefined) {
-      // New conversation format
-      return data as { 
-        msg: string | null; 
-        success: boolean; 
-        show_msg: boolean; 
-        feedback: string | null;
-        task_success?: boolean[];
-        createdAt?: string;
-        usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+    // Back-compat shim: if `msg` exists but `task_success` missing, synthesize all-false array sized to provided tasks
+    if (data && typeof data === 'object' && 'msg' in data) {
+      const msg = (data as any).msg ?? null
+      const show_msg = Boolean((data as any).show_msg)
+      const feedback = (data as any).feedback ?? null
+      let task_success: boolean[] | undefined = (data as any).task_success
+      if (!Array.isArray(task_success)) {
+        const tasks = request.scenarioContext?.tasks || []
+        task_success = new Array(tasks.length).fill(false)
       }
-    } else {
-      // Legacy format - convert to conversation format
-      return {
-        msg: data.text || null,
-        success: false, // Default to false for legacy responses
-        show_msg: true, // Default to true for legacy responses
-        feedback: null,
-        createdAt: data.createdAt,
-        usage: data.usage
-      }
+      return { msg, show_msg, feedback, task_success, createdAt: (data as any).createdAt, usage: (data as any).usage }
+    }
+
+    // Legacy format - convert to assistant response format
+    const legacyMsg = data.text || null
+    const tasks = request.scenarioContext?.tasks || []
+    return {
+      msg: legacyMsg,
+      show_msg: true,
+      feedback: null,
+      task_success: new Array(tasks.length).fill(false),
+      createdAt: data.createdAt,
+      usage: data.usage,
     }
   }
 

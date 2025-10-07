@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { ChatInputSchema, getModel, isDebugEnabled, ConversationResponseSchema } from "../_shared"
+import { ChatInputSchema, getModel, isDebugEnabled } from "../_shared"
 import { buildAssistantMessages } from "../prompts/assistant"
+import { AssistantResponseSchema } from "../prompts/types"
 
 export const runtime = "nodejs"
 
@@ -93,8 +94,8 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Validate conversation response format
-    const validated = ConversationResponseSchema.safeParse(jsonResponse)
+    // Validate assistant response format (no legacy success key)
+    const validated = AssistantResponseSchema.safeParse(jsonResponse)
     if (!validated.success) {
       console.error("Conversation response validation failed:", validated.error)
       // Fallback to old format for backward compatibility

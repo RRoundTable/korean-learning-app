@@ -32,6 +32,7 @@ type Progress = {
 type LearningContextValue = {
   scenario: Scenario | null
   tasks: LearningTask[]
+  lastTaskSuccesses: boolean[]
   currentTaskIndex: number
   currentTask: LearningTask | null
   progress: Progress
@@ -60,8 +61,21 @@ function toLearningTasks(raw?: RawTask[]): LearningTask[] {
 }
 
 export function LearningProvider({ children, initialScenario }: { children: React.ReactNode; initialScenario?: Scenario | null }) {
+  function normalizeSuccesses(input: boolean[] | undefined, total: number): boolean[] {
+    const base = Array.isArray(input) ? input.slice(0, total) : []
+    if (process.env.NODE_ENV !== "production") {
+      if (Array.isArray(input) && input.length !== total) {
+        console.warn(`[Learning] task_success length mismatch. incoming=${input.length}, expected=${total}`)
+      }
+    }
+    if (base.length < total) {
+      return base.concat(new Array(total - base.length).fill(false))
+    }
+    return base
+  }
   const [scenario, setScenarioState] = React.useState<Scenario | null>(initialScenario ?? null)
   const [tasks, setTasks] = React.useState<LearningTask[]>(toLearningTasks(initialScenario?.tasks))
+  const [lastTaskSuccesses, setLastTaskSuccesses] = React.useState<boolean[]>([])
   const [currentTaskIndex, setCurrentTaskIndex] = React.useState(0)
   const [isListening, setIsListening] = React.useState(false)
   const [isAgentSpeaking, setIsAgentSpeaking] = React.useState(false)
@@ -73,6 +87,7 @@ export function LearningProvider({ children, initialScenario }: { children: Reac
     setScenarioState(initialScenario ?? null)
     setTasks(toLearningTasks(initialScenario?.tasks))
     setCurrentTaskIndex(0)
+    setLastTaskSuccesses(new Array(initialScenario?.tasks?.length || 0).fill(false))
     setAttempts(0)
   }, [initialScenario])
 
@@ -84,41 +99,57 @@ export function LearningProvider({ children, initialScenario }: { children: Reac
 
   const progress: Progress = React.useMemo(() => {
     const total = tasks.length
-    const completed = tasks.filter(t => t.status === "success").length
+    const normalized = normalizeSuccesses(lastTaskSuccesses, total)
+    const completed = normalized.filter(Boolean).length
     return { completed, total }
-  }, [tasks])
+  }, [tasks.length, lastTaskSuccesses])
 
   const markCurrentTaskSuccess = React.useCallback(() => {
-    setTasks(prev => prev.map((t, idx) => (idx === currentTaskIndex ? { ...t, status: "success" } : t)))
-  }, [currentTaskIndex])
+    setLastTaskSuccesses(prev => {
+      const total = tasks.length
+      const normalized = normalizeSuccesses(prev, total)
+      const updated = normalized.slice()
+      if (currentTaskIndex >= 0 && currentTaskIndex < total) updated[currentTaskIndex] = true
+      return updated
+    })
+  }, [currentTaskIndex, tasks.length])
 
   const markCurrentTaskFailed = React.useCallback(() => {
-    setTasks(prev => prev.map((t, idx) => (idx === currentTaskIndex ? { ...t, status: "failed" } : t)))
-  }, [currentTaskIndex])
+    setLastTaskSuccesses(prev => {
+      const total = tasks.length
+      const normalized = normalizeSuccesses(prev, total)
+      const updated = normalized.slice()
+      if (currentTaskIndex >= 0 && currentTaskIndex < total) updated[currentTaskIndex] = false
+      return updated
+    })
+  }, [currentTaskIndex, tasks.length])
 
-  // Latch successes without downgrading previously successful tasks.
+  // Normalize and latch successes; then recompute currentTaskIndex
   const latchTaskSuccesses = React.useCallback((successes: boolean[]) => {
-    setTasks(prev => {
-      const len = Math.min(prev.length, successes.length)
-      return prev.map((t, idx) => {
-        if (idx >= len) return t
-        const wasSuccess = t.status === "success"
-        const isNowSuccess = successes[idx] === true
-        return wasSuccess || isNowSuccess ? { ...t, status: "success" } : t
-      })
+    setLastTaskSuccesses(prev => {
+      const total = tasks.length
+      const normalizedIncoming = normalizeSuccesses(successes, total)
+      const normalizedPrev = normalizeSuccesses(prev, total)
+      const merged = normalizedPrev.map((v, i) => v || normalizedIncoming[i] === true)
+      return merged
     })
 
-    // Advance currentTaskIndex to first incomplete (leftmost false) while preserving completed ones
-    setCurrentTaskIndex(prevIdx => {
-      const firstIncomplete = successes.findIndex((v, i) => v === false && i < tasks.length)
-      if (firstIncomplete === -1) return prevIdx
-      return firstIncomplete
+    setCurrentTaskIndex(() => {
+      const total = tasks.length
+      const normalized = normalizeSuccesses(successes, total)
+      const idx = normalized.findIndex(v => v === false)
+      return idx === -1 ? Math.max(0, total - 1) : idx
     })
   }, [tasks.length])
 
   const gotoNextTask = React.useCallback(() => {
-    setCurrentTaskIndex(prev => Math.min(prev + 1, Math.max(0, tasks.length - 1)))
-  }, [tasks.length])
+    setCurrentTaskIndex(() => {
+      const total = tasks.length
+      const normalized = normalizeSuccesses(lastTaskSuccesses, total)
+      const idx = normalized.findIndex(v => v === false)
+      return idx === -1 ? Math.max(0, total - 1) : idx
+    })
+  }, [tasks.length, lastTaskSuccesses])
 
   const incrementAttempts = React.useCallback(() => {
     setAttempts(prev => prev + 1)
@@ -136,10 +167,11 @@ export function LearningProvider({ children, initialScenario }: { children: Reac
     setScenarioState(s)
     setTasks(toLearningTasks(s?.tasks))
     setCurrentTaskIndex(0)
+    setLastTaskSuccesses(new Array(s?.tasks?.length || 0).fill(false))
   }, [])
 
   const reset = React.useCallback(() => {
-    setTasks(prev => prev.map(t => ({ ...t, status: "pending" })))
+    setLastTaskSuccesses(prev => new Array(tasks.length).fill(false))
     setCurrentTaskIndex(0)
     setIsListening(false)
     setIsAgentSpeaking(false)
@@ -156,6 +188,7 @@ export function LearningProvider({ children, initialScenario }: { children: Reac
     () => ({
       scenario,
       tasks,
+      lastTaskSuccesses,
       currentTaskIndex,
       currentTask,
       progress,
@@ -175,7 +208,7 @@ export function LearningProvider({ children, initialScenario }: { children: Reac
       loadProgress,
       latchTaskSuccesses,
     }),
-    [scenario, tasks, currentTaskIndex, currentTask, progress, isListening, isAgentSpeaking, sessionId, attempts, setScenario, markCurrentTaskSuccess, markCurrentTaskFailed, gotoNextTask, incrementAttempts, reset, saveProgress, loadProgress, latchTaskSuccesses]
+    [scenario, tasks, lastTaskSuccesses, currentTaskIndex, currentTask, progress, isListening, isAgentSpeaking, sessionId, attempts, setScenario, markCurrentTaskSuccess, markCurrentTaskFailed, gotoNextTask, incrementAttempts, reset, saveProgress, loadProgress, latchTaskSuccesses]
   )
 
   return <LearningContext.Provider value={value}>{children}</LearningContext.Provider>
