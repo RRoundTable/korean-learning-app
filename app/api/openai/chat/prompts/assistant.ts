@@ -98,7 +98,13 @@ export function buildAssistantMessages(options: {
 
   const last = messages[messages.length - 1]
   const shouldAppend = !last || last.role !== "user" || (String(last.content || "").trim() !== String(userMessage).trim())
-  if (shouldAppend) messages.push({ role: "user", content: userMessage })
+  if (shouldAppend) {
+    // Format user message to include current task information
+    const formattedUserMessage = currentTask 
+      ? `current task: ${currentTask.ko}, user_message: ${userMessage}`
+      : userMessage
+    messages.push({ role: "user", content: formattedUserMessage })
+  }
 
   return messages
 }
