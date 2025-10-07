@@ -885,9 +885,11 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       // Update the message with translation
       setMessages(prev => prev.map(msg => 
         msg.id === messageId 
-          ? { ...msg, translateEn: response.translateEn }
+          ? { ...msg, translateEn: response.translateEn, translation: response.translateEn }
           : msg
       ))
+      // Ensure visibility even if global toggle was off
+      setShowAssistantTranslation(true)
     } catch (error) {
       console.error("Translation error:", error)
     } finally {
@@ -1093,7 +1095,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                       {message.role === "assistant" ? (
                         <>
                           <p className="font-medium mb-3">{message.text}</p>
-                          {showAssistantTranslation && (message.translation || message.translateEn) && (
+                          {(showAssistantTranslation || !!message.translateEn) && (message.translation || message.translateEn) && (
                             <motion.p
                               className="text-sm opacity-70 mb-3"
                               initial={{ opacity: 0, height: 0 }}
