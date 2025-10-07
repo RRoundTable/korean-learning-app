@@ -1006,43 +1006,46 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
-        <Button variant="ghost" size="sm" onClick={onBack} className="p-2">
-          <X className="w-5 h-5" />
-        </Button>
-        <h1 className="text-lg font-bold text-balance">{scenario.title}</h1>
-        <div className="flex items-center gap-2">
-          <Button
-            variant={textOnlyMode ? "default" : "ghost"}
-            size="sm"
-            className="p-2"
-            onClick={() => setTextOnlyMode((v) => !v)}
-            title="Toggle Text-only Chat Mode"
-          >
-            Text Mode
+      {/* Sticky Header (Header + Task Rail) */}
+      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <Button variant="ghost" size="sm" onClick={onBack} className="p-2">
+            <X className="w-5 h-5" />
           </Button>
-          <Button variant="ghost" size="sm" className="p-2">
-            <Settings className="w-5 h-5" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Task Rail Header */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={`task-rail-${currentTaskIndex}-${progress.completed}-${progress.total}`}
-          className="px-4 py-3 border-b border-border bg-muted/20"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.25 }}
-        >
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-            {TaskRail}
+          <h1 className="text-lg font-bold text-balance">{scenario.title}</h1>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={textOnlyMode ? "default" : "ghost"}
+              size="sm"
+              className="p-2"
+              onClick={() => setTextOnlyMode((v) => !v)}
+              title="Toggle Text-only Chat Mode"
+            >
+              Text Mode
+            </Button>
+            <Button variant="ghost" size="sm" className="p-2">
+              <Settings className="w-5 h-5" />
+            </Button>
           </div>
-        </motion.div>
-      </AnimatePresence>
+        </div>
+
+        {/* Task Rail Header */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={`task-rail-${currentTaskIndex}-${progress.completed}-${progress.total}`}
+            className="px-4 py-3 bg-muted/20"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.25 }}
+          >
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+              {TaskRail}
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </div>
 
       {/* Messages Container */}
       <div className="flex-1 px-4 py-6 overflow-y-auto">
