@@ -27,10 +27,10 @@ export function ScenarioCard({ scenario, onBack, onStart, onViewPhrasebook }: Sc
 
       <div className="px-4 md:px-6 max-w-2xl mx-auto">
         {/* Scenario Section */}
-        <div className="mb-8">
+        {/* <div className="mb-8">
           <h2 className="text-lg font-semibold text-muted-foreground mb-4">Scenario</h2>
           <p className="text-sm leading-relaxed text-pretty mb-4">{scenario.description}</p>
-        </div>
+        </div> */}
 
 
         {/* Tasks Section */}
