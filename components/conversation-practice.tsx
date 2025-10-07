@@ -1089,7 +1089,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                         <CardContent className="p-3">
                           <div className="flex items-center gap-2 mb-1">
                             <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                            <span className="text-xs font-medium text-amber-700">피드백</span>
+                            <span className="text-xs font-medium text-amber-700">Feedback</span>
                           </div>
                           <p className="text-sm font-medium text-amber-900">{message.text}</p>
                         </CardContent>
@@ -1270,7 +1270,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                     <div className="w-2 h-2 rounded-full bg-white"></div>
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-blue-900">피드백</p>
+                    <p className="text-sm font-medium text-blue-900">Feedback</p>
                     <p className="text-sm text-blue-700 mt-1">{feedback}</p>
                   </div>
                 </div>
