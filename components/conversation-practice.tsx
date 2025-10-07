@@ -432,7 +432,10 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     // Step 2: Prepare shared conversation snapshot
     const memoryHistory = messages
       .filter(msg => !msg.isWaiting && msg.text)
-      .map(msg => ({ role: msg.role, text: msg.text }))
+      .map(msg => ({ 
+        role: msg.role, 
+        text: msg.isFeedback ? `feedback: ${msg.text}` : msg.text 
+      }))
 
     const chatPayload = {
       sessionId,
@@ -635,7 +638,10 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       // Prepare conversation snapshot
       const memoryHistory = messages
         .filter(msg => !msg.isWaiting && msg.text)
-        .map(msg => ({ role: msg.role, text: msg.text }))
+        .map(msg => ({ 
+          role: msg.role, 
+          text: msg.isFeedback ? `feedback: ${msg.text}` : msg.text 
+        }))
 
       const chatPayload = {
         sessionId,
@@ -773,7 +779,10 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       setIsHintLoading(true)
       const memoryHistory = messages
         .filter(msg => !msg.isWaiting && msg.text)
-        .map(msg => ({ role: msg.role, text: msg.text }))
+        .map(msg => ({ 
+          role: msg.role, 
+          text: msg.isFeedback ? `feedback: ${msg.text}` : msg.text 
+        }))
       const payload = {
         sessionId,
         userMessage: messages.findLast?.((m) => m.role === 'user' && !m.isWaiting && !!m.text)?.text || typedMessage || '',
