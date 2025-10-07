@@ -41,9 +41,12 @@ const ASSISTANT_SYSTEM_PROMPT =
 - 사용자가 현재 테스크를 완료했으면 continue: true
 - 사용자가 현재 테스크를 완료하지 않았으나 자연스러운 대화맥락이면 continue: true
 - 사용자가 현재 테스크를 완료하지도 못하고 자연스러운 대화맥락이 아니면 continue: false
+- 사용자의 한국어 표현이 부자연스럽거나 문법적으로 틀렸을 때 continue: false
 
 **feedback:**
-- success가 false일 때 사용자에게 보여줄 피드백 메시지, 주로 현재 테스크를 완료하지 못한 이유와 달성방법을 공유
+- success가 false일 때 사용자에게 보여줄 피드백 메시지
+- 구체적이고 도움이 되는 피드백 제공 (예: "더 자연스러운 표현을 사용해보세요", "정확한 문법을 사용해보세요")
+- 이모지를 포함하여 친근하게 작성
 `
 
 export function buildAssistantSystemPrompt(): string {
