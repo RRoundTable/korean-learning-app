@@ -47,6 +47,7 @@ const ASSISTANT_SYSTEM_PROMPT =
 **msg:**
 - 역할극에 맞는 자연스러운 한국어 응답이다
 - 가능한 사용자가 현재 테스크를 수행할 수 있도록 묻지 않은 정보를 제공하지 않는다.
+- feedback가 있을 때는 msg는 null이다.
 
 **feedback:**
 - success가 false일 때 사용자에게 보여줄 피드백 메시지
