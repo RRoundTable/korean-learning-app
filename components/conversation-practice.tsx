@@ -464,12 +464,12 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     }
 
     // Step 3: Unified assistant response (includes success check)
-    let unifiedResponse: { 
-      msg: string | null; 
-      success: boolean; 
-      continue: boolean; 
-      feedback: string | null;
-    } | undefined
+      let unifiedResponse: { 
+        msg: string | null; 
+        success: boolean; 
+        show_msg: boolean; 
+        feedback: string | null;
+      } | undefined
     
     try {
       // Single API call for unified response
@@ -478,13 +478,13 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         return { 
           msg: null, 
           success: false, 
-          continue: false, 
+          show_msg: false, 
           feedback: "죄송합니다. 오류가 발생했습니다. 다시 시도해주세요." 
         }
       })
 
       // Handle unified response
-      if (unifiedResponse?.continue && unifiedResponse?.msg) {
+      if (unifiedResponse?.show_msg && unifiedResponse?.msg) {
         // Show assistant message and play TTS
         setAgentSpeaking(true)
         setMessages(prev => {
@@ -530,12 +530,13 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         }
       }
 
-      // Show feedback message if available (regardless of continue value)
-      if (unifiedResponse && unifiedResponse.feedback) {
+      // Show feedback message if available (regardless of show_msg value)
+      if (unifiedResponse?.feedback) {
+        const feedback = unifiedResponse.feedback
         setMessages(prev => prev.concat([{ 
           id: `feedback-${Date.now()}`, 
           role: "assistant", 
-          text: unifiedResponse.feedback,
+          text: feedback as string,
           isFeedback: true
         }]))
       }
@@ -669,7 +670,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       let unifiedResponse: { 
         msg: string | null; 
         success: boolean; 
-        continue: boolean; 
+        show_msg: boolean; 
         feedback: string | null;
       } | undefined
       
@@ -680,13 +681,13 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           return { 
             msg: null, 
             success: false, 
-            continue: false, 
+            show_msg: false, 
             feedback: "죄송합니다. 오류가 발생했습니다. 다시 시도해주세요." 
           }
         })
 
         // Handle unified response
-        if (unifiedResponse?.continue && unifiedResponse?.msg) {
+        if (unifiedResponse?.show_msg && unifiedResponse?.msg) {
           setAgentSpeaking(false)
           setMessages(prev => prev.concat([{ 
             id: `assistant-${Date.now()}`, 
@@ -697,12 +698,13 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           setShowHint(false)
         }
 
-        // Show feedback message if available (regardless of continue value)
-        if (unifiedResponse && unifiedResponse.feedback) {
+        // Show feedback message if available (regardless of show_msg value)
+        if (unifiedResponse?.feedback) {
+          const feedback = unifiedResponse.feedback
           setMessages(prev => prev.concat([{ 
             id: `feedback-${Date.now()}`, 
             role: "assistant", 
-            text: unifiedResponse.feedback,
+            text: feedback as string,
             isFeedback: true
           }]))
         }

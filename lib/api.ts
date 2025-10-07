@@ -146,7 +146,7 @@ export class ApiClient {
   async chatAssistant(request: ChatRequest): Promise<{ 
     msg: string | null; 
     success: boolean; 
-    continue: boolean; 
+    show_msg: boolean; 
     feedback: string | null;
     createdAt?: string;
     usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
@@ -172,7 +172,7 @@ export class ApiClient {
       return data as { 
         msg: string | null; 
         success: boolean; 
-        continue: boolean; 
+        show_msg: boolean; 
         feedback: string | null;
         createdAt?: string;
         usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
@@ -182,7 +182,7 @@ export class ApiClient {
       return {
         msg: data.text || null,
         success: false, // Default to false for legacy responses
-        continue: true, // Default to true for legacy responses
+        show_msg: true, // Default to true for legacy responses
         feedback: null,
         createdAt: data.createdAt,
         usage: data.usage

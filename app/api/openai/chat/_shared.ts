@@ -70,7 +70,7 @@ export type ChatResponse = z.infer<typeof ChatResponseSchema>
 export const ConversationResponseSchema = z.object({
   msg: z.string().nullable(),
   success: z.boolean(),
-  continue: z.boolean(),
+  show_msg: z.boolean(),
   feedback: z.string().nullable(),
 })
 export type ConversationResponse = z.infer<typeof ConversationResponseSchema>
