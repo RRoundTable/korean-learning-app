@@ -75,6 +75,13 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   const [typedMessage, setTypedMessage] = useState<string>("")
   const [translatingMessageId, setTranslatingMessageId] = useState<string | null>(null)
   
+  // Show success popup only when all tasks are completed (by success)
+  useEffect(() => {
+    if (progress.total > 0 && progress.completed === progress.total) {
+      setShowSuccessPopup(true)
+    }
+  }, [progress.completed, progress.total])
+  
   // VAD 관련 상태 (UI에서 제거, 내부 처리만 유지)
   const [vadErrorMessage, setVadErrorMessage] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>(() => {
@@ -564,12 +571,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         gotoNextTask()
         saveProgress()
         
-        // Check if all tasks are completed
-        if (currentTaskIndex >= progress.total - 1) {
-          setTimeout(() => {
-            setShowSuccessPopup(true)
-          }, 1000)
-        }
+        // Success popup is controlled by progress-based effect above
       }, 1500)
     } else {
       // Increment attempts for failed attempts
@@ -735,11 +737,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         setTimeout(() => {
           gotoNextTask()
           saveProgress()
-          if (currentTaskIndex >= progress.total - 1) {
-            setTimeout(() => {
-              setShowSuccessPopup(true)
-            }, 1000)
-          }
+          // Success popup is controlled by progress-based effect above
         }, 1500)
       } else {
         incrementAttempts()
