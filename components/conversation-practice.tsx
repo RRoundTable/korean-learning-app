@@ -72,7 +72,6 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     () => (typeof process !== "undefined" && process.env.NEXT_PUBLIC_TEXT_ONLY_CHAT === "true") || false
   )
   const [typedMessage, setTypedMessage] = useState<string>("")
-  const [showGoal, setShowGoal] = useState<boolean>(false)
   const [translatingMessageId, setTranslatingMessageId] = useState<string | null>(null)
   
   // VAD 관련 상태 (UI에서 제거, 내부 처리만 유지)
@@ -938,47 +937,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     </div>
   ), [])
 
-  // Local header components: GoalPanel and TaskRail
-  const GoalPanel = useMemo(() => ({ goal, goalEn }: { goal?: string; goalEn?: string }) => (
-    <div className="flex-1 min-w-0 md:max-w-[60%]">
-      <div className="flex items-center justify-end">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="p-1.5 h-auto text-xs md:text-sm"
-          onClick={() => setShowGoal((v) => !v)}
-        >
-          {showGoal ? "Hide Goal" : "Show Goal"}
-        </Button>
-      </div>
-      <AnimatePresence initial={false}>
-        {showGoal && (
-          <motion.div
-            key="goal-content"
-            initial={{ opacity: 0, y: 6, height: 0 }}
-            animate={{ opacity: 1, y: 0, height: "auto" }}
-            exit={{ opacity: 0, y: -6, height: 0 }}
-            transition={{ duration: 0.2 }}
-            className="mt-0.5"
-          >
-            <div className="text-sm md:text-lg font-semibold text-foreground line-clamp-2 break-words md:text-right">
-              {goal || "Goal not provided yet"}
-            </div>
-            {showAssistantTranslation && goalEn && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="text-xs md:text-sm text-muted-foreground mt-0.5 md:text-right"
-              >
-                {goalEn}
-              </motion.div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  ), [showGoal, showAssistantTranslation])
+  // Local header components: TaskRail
 
   const TaskRail = useMemo(() => (
     <div className="flex flex-col md:items-start gap-1 md:gap-2 md:pr-4">
@@ -1062,10 +1021,10 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         </div>
       </div>
 
-      {/* Goal + Task Rail Header */}
+      {/* Task Rail Header */}
       <AnimatePresence mode="wait">
         <motion.div
-          key={`goal-rail-${currentTaskIndex}-${progress.completed}-${progress.total}`}
+          key={`task-rail-${currentTaskIndex}-${progress.completed}-${progress.total}`}
           className="px-4 py-3 border-b border-border bg-muted/20"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1074,7 +1033,6 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         >
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
             {TaskRail}
-            {GoalPanel({ goal: scenario?.goal, goalEn: scenario?.goalEn })}
           </div>
         </motion.div>
       </AnimatePresence>

@@ -30,8 +30,6 @@ interface Scenario {
   userRole: string
   description: string
   descriptionEn: string
-  goal: string
-  goalEn: string
   emoji: string
   isFree: boolean
   initialMessage?: InitialMessage
@@ -54,8 +52,6 @@ export default function KoreanLearningApp() {
       description:
         "샌프란시스코에 사는  친구가 파티에 초대해 줘서 놀러 왔어요. 친구가 전부터 소개해주고 싶은 사람이 있다고 했었는데, 오늘 파티에서 드디어 만났네요!",
       descriptionEn: "Have a casual conversation with your new friend",
-      goal: "처음 만난 친구와 기본 정보 나누고 다음 약속 잡기",
-      goalEn: "Exchange basics with a new friend and set a follow-up plan",
       emoji: "👋",
       isFree: true,
       initialMessage: {
@@ -97,8 +93,6 @@ export default function KoreanLearningApp() {
       버거 세트는 버거와 사이드 메뉴를 함께 제공합니다.\
       ",
       descriptionEn: "This is a burger chain where you can order a burger set. Order a burger set within budget and complete payment.",
-      goal: "예산: 1000원, 새우알러지, 제로콜라",
-      goalEn: "Order a burger set within budget and complete payment",
       emoji: "🍔",
       isFree: false,
       initialMessage: {
@@ -107,10 +101,10 @@ export default function KoreanLearningApp() {
       },
       
       tasks: [
-        { ko: "어떤 메뉴가 있는지 물어보세요.", en: "Ask about the menu" },
-        { ko: "가격을 물어보세요.", en: "Ask about the price" },
+        { ko: "어떤 버거종류가 있는지 물어보세요.", en: "Ask about the menu" },
+        { ko: "원하는 버거의 가격을 물어보세요.", en: "Ask about the price" },
         { ko: "제로콜라가 있는지 물어보세요.", en: "Ask if there is zero cola" },
-        { ko: "주문을 완료하세요.", en: "Complete the order" },
+        { ko: "원하는 버거 세트 주문을 완료하세요.", en: "Complete the order" },
       ],
       ttsVoice: "alloy",
       ttsInstructions: "Speak in a professional, helpful service tone. Be clear and patient with customers. Sound like a friendly fast-food employee who wants to help.",
@@ -123,8 +117,6 @@ export default function KoreanLearningApp() {
       userRole: "운동화 사러 온 손님",
       description: "운동화를 사러 나이키 매장에 갔습니다.",
       descriptionEn: "Shopping for sneakers at Nike store",
-      goal: "원하는 운동화를 찾아 신어보고 구매 결정하기",
-      goalEn: "Find, try on, and decide on the right sneakers",
       emoji: "👟",
       isFree: false,
       initialMessage: {
@@ -149,8 +141,6 @@ export default function KoreanLearningApp() {
       userRole: "손님",
       description: "동네 카페에서 커피를 주문하고 친구와 대화합니다.",
       descriptionEn: "Order coffee and chat with friends at a local cafe",
-      goal: "원하는 커피를 주문하고 자연스럽게 대화 이어가기",
-      goalEn: "Order your coffee and keep a natural conversation",
       emoji: "☕",
       isFree: false,
       initialMessage: {
