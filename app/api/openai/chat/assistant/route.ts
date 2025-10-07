@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { ChatInputSchema, getModel, isDebugEnabled } from "../_shared"
+import { ChatInputSchema, getModel, isDebugEnabled, UnifiedResponseSchema } from "../_shared"
 import { buildAssistantMessages } from "../prompts/assistant"
 
 export const runtime = "nodejs"
@@ -40,7 +40,11 @@ export async function POST(request: NextRequest) {
     const model = getModel()
 
     const finalMessages = messages
-    const requestBody = { model, messages: finalMessages }
+    const requestBody = { 
+      model, 
+      messages: finalMessages,
+      response_format: { type: "json_object" }
+    }
 
     if (isDebugEnabled()) {
       console.log("[DEBUG] assistant request:", requestBody)
@@ -69,10 +73,48 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const assistantText: string = data?.choices?.[0]?.message?.content ?? ""
+    const rawResponse: string = data?.choices?.[0]?.message?.content ?? ""
     
-    return NextResponse.json({ 
-      text: assistantText,
+    // Parse JSON response
+    let jsonResponse: unknown = {}
+    try {
+      jsonResponse = JSON.parse(rawResponse)
+    } catch (parseError) {
+      console.error("Failed to parse JSON response:", parseError)
+      // Fallback to old format for backward compatibility
+      return NextResponse.json({ 
+        text: rawResponse,
+        createdAt: new Date().toISOString(),
+        usage: {
+          promptTokens: data.usage?.prompt_tokens || 0,
+          completionTokens: data.usage?.completion_tokens || 0,
+          totalTokens: data.usage?.total_tokens || 0,
+        }
+      })
+    }
+
+    // Validate unified response format
+    const validated = UnifiedResponseSchema.safeParse(jsonResponse)
+    if (!validated.success) {
+      console.error("Unified response validation failed:", validated.error)
+      // Fallback to old format for backward compatibility
+      return NextResponse.json({ 
+        text: rawResponse,
+        createdAt: new Date().toISOString(),
+        usage: {
+          promptTokens: data.usage?.prompt_tokens || 0,
+          completionTokens: data.usage?.completion_tokens || 0,
+          totalTokens: data.usage?.total_tokens || 0,
+        }
+      })
+    }
+
+    if (isDebugEnabled()) {
+      console.log("[DEBUG] unified response:", validated.data)
+    }
+
+    return NextResponse.json({
+      ...validated.data,
       createdAt: new Date().toISOString(),
       usage: {
         promptTokens: data.usage?.prompt_tokens || 0,

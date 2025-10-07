@@ -66,6 +66,15 @@ export const ChatResponseSchema = z.object({
 })
 export type ChatResponse = z.infer<typeof ChatResponseSchema>
 
+// Unified response schema for assistant + success check integration
+export const UnifiedResponseSchema = z.object({
+  msg: z.string().nullable(),
+  success: z.boolean(),
+  continue: z.boolean(),
+  feedback: z.string().nullable(),
+})
+export type UnifiedResponse = z.infer<typeof UnifiedResponseSchema>
+
 // Prompt building moved to app/api/openai/chat/prompts/*
 
 export function getModel() {

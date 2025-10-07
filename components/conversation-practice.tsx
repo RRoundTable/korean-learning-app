@@ -29,6 +29,7 @@ interface Message {
   isWaiting?: boolean
   isCurrentlyRecording?: boolean
   isCancelled?: boolean
+  isFeedback?: boolean
 }
 
 export function ConversationPractice({ scenario, onBack, initialMessage }: ConversationPracticeProps) {
@@ -99,6 +100,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       },
     ]
   })
+
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
@@ -461,40 +463,46 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       memoryHistory,
     }
 
-    // Step 3: Parallel execution - Assistant and Success Check
-    let assistantText: string | undefined
-    let check: { success?: boolean } | undefined
+    // Step 3: Unified assistant response (includes success check)
+    let unifiedResponse: { 
+      msg: string | null; 
+      success: boolean; 
+      continue: boolean; 
+      feedback: string | null;
+    } | undefined
     
     try {
-      // Run assistant and success check in parallel
-      const [assistantResponse, successCheckResponse] = await Promise.all([
-        apiClient.chatAssistant(chatPayload).catch((e) => {
-          console.error("Assistant error", e)
-          return { text: "", translateEn: "" }
-        }),
-        apiClient.chatCheckSuccess(chatPayload).catch((e) => {
-          console.error("Success check error", e)
-          return { success: false }
-        })
-      ])
+      // Single API call for unified response
+      unifiedResponse = await apiClient.chatAssistant(chatPayload).catch((e) => {
+        console.error("Assistant error", e)
+        return { 
+          msg: null, 
+          success: false, 
+          continue: false, 
+          feedback: "죄송합니다. 오류가 발생했습니다. 다시 시도해주세요." 
+        }
+      })
 
-      // Handle assistant response
-      assistantText = assistantResponse.text
-      if (assistantText && assistantText.trim().length > 0) {
+      // Handle unified response
+      if (unifiedResponse.continue && unifiedResponse.msg) {
+        // Show assistant message and play TTS
         setAgentSpeaking(true)
-        setMessages(prev => prev.concat([{ 
-          id: `assistant-${Date.now()}`, 
-          role: "assistant", 
-          text: assistantText!,
-          translateEn: assistantResponse.translateEn
-        }]))
+        setMessages(prev => {
+          const newMessage = { 
+            id: `assistant-${Date.now()}`, 
+            role: "assistant" as const, 
+            text: unifiedResponse.msg!,
+            translateEn: undefined // Will be handled by TTS translation if needed
+          }
+          return [...prev, newMessage]
+        })
 
         // Assistant 응답 시 힌트 자동 숨김
         setShowHint(false)
 
         // Stream TTS for the entire text as a single audio stream
         try {
-          const audioUrl = await apiClient.getOrCreateTtsObjectUrl(assistantText, {
+          const audioUrl = await apiClient.getOrCreateTtsObjectUrl(unifiedResponse.msg, {
             sessionId,
             voice: scenario.ttsVoice || "nova",
             format: "mp3",
@@ -503,25 +511,42 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           const audio = new Audio(audioUrl)
           audioRef.current = audio
           await new Promise<void>((resolve) => {
-            audio.onended = () => resolve()
-            audio.onerror = () => resolve()
-            audio.play().catch(() => resolve())
+            audio.onended = () => {
+              setAgentSpeaking(false)
+              resolve()
+            }
+            audio.onerror = () => {
+              setAgentSpeaking(false)
+              resolve()
+            }
+            audio.play().catch(() => {
+              setAgentSpeaking(false)
+              resolve()
+            })
           })
-        } catch {}
+        } catch (e) {
+          console.error("TTS error:", e)
+          setAgentSpeaking(false)
+        }
+      } else if (!unifiedResponse.continue && unifiedResponse.feedback) {
+        // Show feedback message instead of assistant response
+        setMessages(prev => prev.concat([{ 
+          id: `feedback-${Date.now()}`, 
+          role: "assistant", 
+          text: unifiedResponse.feedback!,
+          isFeedback: true
+        }]))
       }
 
-      // Handle success check response
-      check = successCheckResponse
-
     } catch (e) {
-      console.error("Parallel execution error", e)
-    } finally {
+      console.error("Unified execution error", e)
       setAgentSpeaking(false)
+    } finally {
       setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
     }
 
-    // Handle task progress based on check-success
-    if (check?.success) {
+    // Handle task progress based on unified response
+    if (unifiedResponse?.success) {
       markCurrentTaskSuccess()
       setTimeout(() => {
         gotoNextTask()
@@ -638,47 +663,54 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         memoryHistory,
       }
 
-      // Parallel execution - Assistant and Success Check (text-only mode)
-      let assistantText: string | undefined
-      let check: { success?: boolean } | undefined
+      // Unified assistant response (includes success check)
+      let unifiedResponse: { 
+        msg: string | null; 
+        success: boolean; 
+        continue: boolean; 
+        feedback: string | null;
+      } | undefined
       
       try {
-        // Run assistant and success check in parallel
-        const [assistantResponse, successCheckResponse] = await Promise.all([
-          apiClient.chatAssistant(chatPayload).catch((e) => {
-            console.error("Assistant error", e)
-            return { text: "", translateEn: "" }
-          }),
-          apiClient.chatCheckSuccess(chatPayload).catch((e) => {
-            console.error("Success check error", e)
-            return { success: false }
-          })
-        ])
+        // Single API call for unified response
+        unifiedResponse = await apiClient.chatAssistant(chatPayload).catch((e) => {
+          console.error("Assistant error", e)
+          return { 
+            msg: null, 
+            success: false, 
+            continue: false, 
+            feedback: "죄송합니다. 오류가 발생했습니다. 다시 시도해주세요." 
+          }
+        })
 
-        // Handle assistant response
-        assistantText = assistantResponse.text
-        if (assistantText && assistantText.trim().length > 0) {
+        // Handle unified response
+        if (unifiedResponse.continue && unifiedResponse.msg) {
           setAgentSpeaking(false)
           setMessages(prev => prev.concat([{ 
             id: `assistant-${Date.now()}`, 
             role: "assistant", 
-            text: assistantText!,
-            translateEn: assistantResponse.translateEn,
+            text: unifiedResponse.msg!,
+            translateEn: undefined
           }]))
           setShowHint(false)
+        } else if (!unifiedResponse.continue && unifiedResponse.feedback) {
+          setMessages(prev => prev.concat([{ 
+            id: `feedback-${Date.now()}`, 
+            role: "assistant", 
+            text: unifiedResponse.feedback!,
+            isFeedback: true
+          }]))
         }
 
-        // Handle success check response
-        check = successCheckResponse
-
       } catch (e) {
-        console.error("Parallel execution error", e)
+        console.error("Unified execution error", e)
         setAgentSpeaking(false)
       } finally {
         setMessages(prev => prev.concat([{ id: `user-waiting-${Date.now()}`, role: "user", text: "", isWaiting: true }]))
       }
 
-      if (check?.success) {
+      // Handle task progress based on unified response
+      if (unifiedResponse?.success) {
         markCurrentTaskSuccess()
         setTimeout(() => {
           gotoNextTask()
@@ -1044,10 +1076,26 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                 transition={{ duration: 0.3 }}
               >
                 <div className={`max-w-[80%] md:max-w-[70%] ${message.role === "user" ? "order-2" : "order-1"}`}>
-                  <Card className={`${message.role === "user" ? "bg-primary text-primary-foreground" : "bg-card"}`}>
+                  <Card className={`${
+                    message.role === "user" 
+                      ? "bg-primary text-primary-foreground" 
+                      : message.isFeedback 
+                        ? "bg-yellow-50 border-yellow-200 border-2" 
+                        : "bg-card"
+                  }`}>
                     <CardContent className="p-4">
+                      {/* Debug: Show message info */}
+                      <div className="text-xs text-red-500 mb-1">
+                        DEBUG: {message.role} - {message.id}
+                      </div>
                       {message.role === "assistant" ? (
                         <>
+                          {message.isFeedback && (
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                              <span className="text-sm font-medium text-yellow-700">피드백</span>
+                            </div>
+                          )}
                           <p className="font-medium mb-3">{message.text}</p>
                           {showAssistantTranslation && (message.translation || message.translateEn) && (
                             <motion.p

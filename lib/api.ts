@@ -142,8 +142,15 @@ export class ApiClient {
 
   // Deprecated chat() removed. Use chatAssistant() and chatMetadata() instead.
 
-  // Assistant text (non-streaming). Returns { text: string, translateEn?: string }
-  async chatAssistant(request: ChatRequest): Promise<{ text: string; translateEn?: string }> {
+  // Unified assistant response (includes success check). Returns unified response format
+  async chatAssistant(request: ChatRequest): Promise<{ 
+    msg: string | null; 
+    success: boolean; 
+    continue: boolean; 
+    feedback: string | null;
+    createdAt?: string;
+    usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+  }> {
     const url = `${this.baseUrl}/api/openai/chat/assistant`
     this.logRequest('POST', url, request)
     const response = await fetch(url, {
@@ -158,27 +165,32 @@ export class ApiClient {
     }
     const data = await response.json()
     this.logResponse('POST', '/api/openai/chat/assistant', data)
-    return data as { text: string; translateEn?: string }
+    
+    // Handle both new unified format and legacy format for backward compatibility
+    if (data.msg !== undefined) {
+      // New unified format
+      return data as { 
+        msg: string | null; 
+        success: boolean; 
+        continue: boolean; 
+        feedback: string | null;
+        createdAt?: string;
+        usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+      }
+    } else {
+      // Legacy format - convert to unified format
+      return {
+        msg: data.text || null,
+        success: false, // Default to false for legacy responses
+        continue: true, // Default to true for legacy responses
+        feedback: null,
+        createdAt: data.createdAt,
+        usage: data.usage
+      }
+    }
   }
 
-  // Fetch metadata-only JSON (TurnResult shape)
-  async chatCheckSuccess(request: ChatRequest): Promise<TurnResult> {
-    const url = `${this.baseUrl}/api/openai/chat/check-success`
-    this.logRequest('POST', url, request)
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request),
-      credentials: 'include',
-    })
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({ error: 'Check-success request failed' }))
-      throw new Error(err.error || `Check-success failed with status ${response.status}`)
-    }
-    const data = await response.json()
-    this.logResponse('POST', '/api/openai/chat/check-success', data)
-    return data as TurnResult
-  }
+  // Deprecated: chatCheckSuccess removed - now integrated into chatAssistant
 
   async chatHint(request: ChatRequest): Promise<{ hint: string; hintTranslateEn?: string | null }> {
     const url = `${this.baseUrl}/api/openai/chat/hint`
