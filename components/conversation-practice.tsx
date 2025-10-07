@@ -484,14 +484,14 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       })
 
       // Handle unified response
-      if (unifiedResponse.continue && unifiedResponse.msg) {
+      if (unifiedResponse?.continue && unifiedResponse?.msg) {
         // Show assistant message and play TTS
         setAgentSpeaking(true)
         setMessages(prev => {
           const newMessage = { 
             id: `assistant-${Date.now()}`, 
             role: "assistant" as const, 
-            text: unifiedResponse.msg!,
+            text: unifiedResponse?.msg!,
             translateEn: undefined // Will be handled by TTS translation if needed
           }
           return [...prev, newMessage]
@@ -528,12 +528,14 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           console.error("TTS error:", e)
           setAgentSpeaking(false)
         }
-      } else if (!unifiedResponse.continue && unifiedResponse.feedback) {
-        // Show feedback message instead of assistant response
+      }
+
+      // Show feedback message if available (regardless of continue value)
+      if (unifiedResponse?.feedback) {
         setMessages(prev => prev.concat([{ 
           id: `feedback-${Date.now()}`, 
           role: "assistant", 
-          text: unifiedResponse.feedback!,
+          text: unifiedResponse.feedback,
           isFeedback: true
         }]))
       }
@@ -684,23 +686,27 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         })
 
         // Handle unified response
-        if (unifiedResponse.continue && unifiedResponse.msg) {
+        if (unifiedResponse?.continue && unifiedResponse?.msg) {
           setAgentSpeaking(false)
           setMessages(prev => prev.concat([{ 
             id: `assistant-${Date.now()}`, 
             role: "assistant", 
-            text: unifiedResponse.msg!,
+            text: unifiedResponse?.msg!,
             translateEn: undefined
           }]))
           setShowHint(false)
-        } else if (!unifiedResponse.continue && unifiedResponse.feedback) {
+        }
+
+        // Show feedback message if available (regardless of continue value)
+        if (unifiedResponse?.feedback) {
           setMessages(prev => prev.concat([{ 
             id: `feedback-${Date.now()}`, 
             role: "assistant", 
-            text: unifiedResponse.feedback!,
+            text: unifiedResponse.feedback,
             isFeedback: true
           }]))
         }
+        
 
       } catch (e) {
         console.error("Unified execution error", e)
@@ -1066,8 +1072,36 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       <div className="flex-1 px-4 py-6 overflow-y-auto">
         <div className="max-w-2xl mx-auto space-y-4">
           <AnimatePresence>
-            {messages.map((message) => (
-              <motion.div
+            {messages.map((message) => {
+              // 피드백 메시지는 가운데 정렬로 별도 렌더링
+              if (message.isFeedback) {
+                return (
+                  <motion.div
+                    key={message.id}
+                    className="flex justify-center"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="max-w-[80%] md:max-w-[70%]">
+                      <Card className="bg-blue-50 border-blue-200 border-2">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <span className="text-xs font-medium text-blue-700">피드백</span>
+                          </div>
+                          <p className="text-sm font-medium text-blue-900">{message.text}</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </motion.div>
+                )
+              }
+              
+              // 일반 메시지 렌더링
+              return (
+                <motion.div
                 key={message.id}
                 className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                 initial={{ opacity: 0, y: 20 }}
@@ -1079,23 +1113,11 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                   <Card className={`${
                     message.role === "user" 
                       ? "bg-primary text-primary-foreground" 
-                      : message.isFeedback 
-                        ? "bg-yellow-50 border-yellow-200 border-2" 
-                        : "bg-card"
+                      : "bg-card"
                   }`}>
                     <CardContent className="p-4">
-                      {/* Debug: Show message info */}
-                      <div className="text-xs text-red-500 mb-1">
-                        DEBUG: {message.role} - {message.id}
-                      </div>
                       {message.role === "assistant" ? (
                         <>
-                          {message.isFeedback && (
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                              <span className="text-sm font-medium text-yellow-700">피드백</span>
-                            </div>
-                          )}
                           <p className="font-medium mb-3">{message.text}</p>
                           {showAssistantTranslation && (message.translation || message.translateEn) && (
                             <motion.p
@@ -1197,8 +1219,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                     </CardContent>
                   </Card>
                 </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              )
+            })}
           </AnimatePresence>
         </div>
       </div>
