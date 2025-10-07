@@ -45,25 +45,27 @@ export default function KoreanLearningApp() {
  const scenarios: Scenario[] = [
     {
       id: 1,
-      title: "새 친구 사귀기",
+      title: "로빈과 약속잡기",
       titleEn: "Making New Friends",
-      role: "로빈 (에이미의 친구)",
-      userRole: "에이미의 친구와 처음 인사하는 사람",
+      role: "로빈",
+      userRole: "친구 파티에서 만난 사람",
       description:
-        "샌프란시스코에 사는  친구가 파티에 초대해 줘서 놀러 왔어요. 친구가 전부터 소개해주고 싶은 사람이 있다고 했었는데, 오늘 파티에서 드디어 만났네요!",
+        "로빈과 친구 파티에서 만났다. 로빈의 취미는 카페를 가는 것을 좋아한다. 로빈과 약속을 잡아보자.",
       descriptionEn: "Have a casual conversation with your new friend",
-      emoji: "👋",
+      emoji: "🍷",
       isFree: true,
       initialMessage: {
-        text: "안녕하세요! 저는 로빈이에요. 에이미 친구맞으세요?",
+        text: "안녕하세요! 저는 로빈이에요.",
         translation: "Hi, I'm Robin! Are you Amy's friend?",
       },
       
       tasks: [
-        { ko: "새로 사귄 친구에 대해 질문을 해보세요", en: "Ask your new friend a question about themselves" },
-        { ko: "자신의 고향과 하는 일에 대해 얘기해 보세요", en: "Talk about your hometown and job" },
+        { ko: "로빈에게 인사와 함께 자기소개를 하세요.", en: "Ask your new friend a question about themselves" },
+        { ko: "로빈의 취미에 대해서 물어보세요.", en: "Talk about your hometown and job" },
+        { ko: "좋아하는 음료 종류를 물어보세요.", en: "Ask about the favorite drink" },
+        { ko: "로빈과 자유로운 대화를 나눠보세요.", en: "Talk about your hometown and job" },
         {
-          ko: "새로 사귄 친구에게 다음 주말에 커피 마시러 가자고 해보세요",
+          ko: "로빈과 다음 주말에 커피 마시러 가자고 해보세요.",
           en: "Ask your new friend out for coffee next weekend",
         },
       ],
@@ -104,7 +106,7 @@ export default function KoreanLearningApp() {
         { ko: "어떤 버거종류가 있는지 물어보세요.", en: "Ask about the menu" },
         { ko: "원하는 버거의 가격을 물어보세요.", en: "Ask about the price" },
         { ko: "제로콜라가 있는지 물어보세요.", en: "Ask if there is zero cola" },
-        { ko: "원하는 버거 세트 주문을 완료하세요.", en: "Complete the order" },
+        { ko: "제로콜라를 포함한 버거 세트 주문을 완료하세요.", en: "Complete the order" },
       ],
       ttsVoice: "nova",
       ttsInstructions: "Speak in a friendly, helpful service tone. Be enthusiastic and welcoming. Sound like a friendly fast-food employee who wants to help.",
@@ -114,49 +116,27 @@ export default function KoreanLearningApp() {
       title: "나이키 매장에서",
       titleEn: "At Nike Store",
       role: "매장 직원",
-      userRole: "운동화 사러 온 손님",
+      userRole: "러닝화를 사러 온 손님",
       description: "운동화를 사러 나이키 매장에 갔습니다.",
       descriptionEn: "Shopping for sneakers at Nike store",
       emoji: "👟",
       isFree: false,
       initialMessage: {
-        text: "안녕하세요! 나이키 매장에 오신 것을 환영합니다. 어떤 운동화를 찾고 계신가요?",
+        text: "안녕하세요! 찾으시는 신발이 있으신가요?",
         translation: "Hello! Welcome to Nike store. What kind of sneakers are you looking for?",
       },
       
       tasks: [
-        { ko: "원하는 운동화 스타일을 설명해보세요", en: "Describe the style of sneakers you want" },
-        { ko: "사이즈를 확인하고 신어보고 싶다고 말해보세요", en: "Check the size and ask to try them on" },
-        { ko: "가격과 할인 혜택에 대해 물어보세요", en: "Ask about the price and discount benefits" },
-        { ko: "구매를 결정하고 결제 방법을 확인해보세요", en: "Decide to purchase and check payment methods" },
+        { ko: "점원에게 찾고 있는 신발 종류를 말해보세요.", en: "Describe the style of sneakers you want" },
+        { ko: "점원에게 찾는 신발사이즈를 말해보세요.", en: "Check the size and ask to try them on" },
+        { ko: "신발 사이즈가 크네요. 점원에게 더 큰 신발 사이즈를 요청해보세요.", en: "Ask about the price and discount benefits" },
+        { ko: "할인 행사를 하고 있는지 물어보세요.", en: "Decide to purchase and check payment methods" },
+        { ko: "카드결제를 하고 싶다고 말해보세요.", en: "Decide to purchase and check payment methods" },
       ],
       ttsVoice: "coral",
       ttsInstructions: "Speak in an energetic, helpful retail assistant tone. Be enthusiastic about products and helpful to customers. Sound like a knowledgeable shoe salesperson.",
-    },
-    {
-      id: 4,
-      title: "아늑한 동네 카페에서",
-      titleEn: "At a Cozy Neighborhood Cafe",
-      role: "카페 바리스타",
-      userRole: "손님",
-      description: "동네 카페에서 커피를 주문하고 친구와 대화합니다.",
-      descriptionEn: "Order coffee and chat with friends at a local cafe",
-      emoji: "☕",
-      isFree: false,
-      initialMessage: {
-        text: "안녕하세요! 오늘은 어떤 커피를 드시겠어요?",
-        translation: "Hello! What kind of coffee would you like today?",
-      },
-      
-      tasks: [
-        { ko: "커피 메뉴를 물어보고 추천을 받아보세요", en: "Ask about the coffee menu and get recommendations" },
-        { ko: "원하는 커피를 주문하고 사이즈를 선택해보세요", en: "Order your desired coffee and choose the size" },
-        { ko: "디저트나 간식을 추가로 주문해보세요", en: "Add desserts or snacks to your order" },
-        { ko: "가격을 확인하고 결제해보세요", en: "Check the price and make payment" },
-      ],
-      ttsVoice: "shimmer",
-      ttsInstructions: "Speak in a calm, professional barista tone. Be knowledgeable and welcoming. Sound like an experienced coffee shop barista who loves their craft.",
-    },
+    }
+   
   ]
 
   const handleScenarioSelect = (scenario: Scenario) => {
