@@ -148,6 +148,7 @@ export class ApiClient {
     success: boolean; 
     show_msg: boolean; 
     feedback: string | null;
+    task_success?: boolean[];
     createdAt?: string;
     usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
   }> {
@@ -174,6 +175,7 @@ export class ApiClient {
         success: boolean; 
         show_msg: boolean; 
         feedback: string | null;
+        task_success?: boolean[];
         createdAt?: string;
         usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
       }

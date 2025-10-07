@@ -49,6 +49,7 @@ type LearningContextValue = {
   reset: () => void
   saveProgress: () => void
   loadProgress: () => void
+  latchTaskSuccesses: (successes: boolean[]) => void
 }
 
 const LearningContext = React.createContext<LearningContextValue | null>(null)
@@ -94,6 +95,26 @@ export function LearningProvider({ children, initialScenario }: { children: Reac
   const markCurrentTaskFailed = React.useCallback(() => {
     setTasks(prev => prev.map((t, idx) => (idx === currentTaskIndex ? { ...t, status: "failed" } : t)))
   }, [currentTaskIndex])
+
+  // Latch successes without downgrading previously successful tasks.
+  const latchTaskSuccesses = React.useCallback((successes: boolean[]) => {
+    setTasks(prev => {
+      const len = Math.min(prev.length, successes.length)
+      return prev.map((t, idx) => {
+        if (idx >= len) return t
+        const wasSuccess = t.status === "success"
+        const isNowSuccess = successes[idx] === true
+        return wasSuccess || isNowSuccess ? { ...t, status: "success" } : t
+      })
+    })
+
+    // Advance currentTaskIndex to first incomplete (leftmost false) while preserving completed ones
+    setCurrentTaskIndex(prevIdx => {
+      const firstIncomplete = successes.findIndex((v, i) => v === false && i < tasks.length)
+      if (firstIncomplete === -1) return prevIdx
+      return firstIncomplete
+    })
+  }, [tasks.length])
 
   const gotoNextTask = React.useCallback(() => {
     setCurrentTaskIndex(prev => Math.min(prev + 1, Math.max(0, tasks.length - 1)))
@@ -152,8 +173,9 @@ export function LearningProvider({ children, initialScenario }: { children: Reac
       reset,
       saveProgress,
       loadProgress,
+      latchTaskSuccesses,
     }),
-    [scenario, tasks, currentTaskIndex, currentTask, progress, isListening, isAgentSpeaking, sessionId, attempts, setScenario, markCurrentTaskSuccess, markCurrentTaskFailed, gotoNextTask, incrementAttempts, reset, saveProgress, loadProgress]
+    [scenario, tasks, currentTaskIndex, currentTask, progress, isListening, isAgentSpeaking, sessionId, attempts, setScenario, markCurrentTaskSuccess, markCurrentTaskFailed, gotoNextTask, incrementAttempts, reset, saveProgress, loadProgress, latchTaskSuccesses]
   )
 
   return <LearningContext.Provider value={value}>{children}</LearningContext.Provider>

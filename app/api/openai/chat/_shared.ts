@@ -72,6 +72,8 @@ export const ConversationResponseSchema = z.object({
   success: z.boolean(),
   show_msg: z.boolean(),
   feedback: z.string().nullable(),
+  // Optional per-task success array aligned with provided task order
+  task_success: z.array(z.boolean()).optional(),
 })
 export type ConversationResponse = z.infer<typeof ConversationResponseSchema>
 

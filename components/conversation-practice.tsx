@@ -47,6 +47,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     gotoNextTask,
     incrementAttempts,
     saveProgress,
+    latchTaskSuccesses,
   } = useLearningContext()
 
   const [showHintTranslation, setShowHintTranslation] = useState(false)
@@ -530,6 +531,12 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           console.error("TTS error:", e)
           setAgentSpeaking(false)
         }
+      }
+
+      // Latch per-task successes if provided
+      if (Array.isArray((unifiedResponse as any)?.task_success)) {
+        const arr = (unifiedResponse as any).task_success as boolean[]
+        latchTaskSuccesses(arr)
       }
 
       // Show feedback message if available (regardless of show_msg value)

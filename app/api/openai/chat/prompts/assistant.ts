@@ -19,7 +19,8 @@ const ASSISTANT_SYSTEM_PROMPT =
   "msg": "assistant의 응답 메시지 (한국어)",
   "success": true/false,
   "show_msg": true/false,
-  "feedback": "피드백 메시지 또는 null"
+  "feedback": "피드백 메시지 또는 null",
+  "task_success": [true/false, ...]
 }
 
 **응답 규칙:**
@@ -29,11 +30,19 @@ const ASSISTANT_SYSTEM_PROMPT =
   * true: 메시지를 사용자에게 보여줌 (msg를 사용자에게 표시)
   * false: 메시지를 숨김 (msg는 null, feedback을 사용자에게 보여줌)
 - feedback: success가 false일 때 사용자에게 보여줄 피드백 메시지, 주로 현재 테스크를 완료하지 못한 이유와 달성방법을 공유
+ - task_success: "전체 테스크 목록" 각각에 대한 성공 여부 배열. 길이는 테스크 개수와 동일하며, 인덱스는 제공된 테스크 순서와 정확히 일치해야 한다. 오직 true/false 값만 포함한다. 추가 설명 필드를 절대 포함하지 않는다.
 
 **success 판단 기준:**
 - 사용자가 현재 테스크에 맞는 적절한 한국어 표현을 사용했는가?
 - 사용자의 발화를 기반으로 테스크에 대한 적절한 응답을 했는가?
 - 문법적으로나 의미적으로 올바른 한국어를 사용했는가?
+
+**task_success 평가 지침:**
+- 각 테스크를 서로 독립적으로 평가한다 (현재 테스크가 아니어도 만족했으면 true).
+- 배열 길이는 "전체 테스크 목록"의 길이와 동일해야 한다.
+- 인덱스 i의 값은 목록의 i번째 테스크에 대한 평가 결과다.
+- 설명, 점수, 이유 등은 포함하지 말고 불리언 배열만 포함한다.
+- 평가는 반드시 대화 히스토리의 사용자 발화(user role 메시지)와 assistant의 응답(msg)을 바탕으로 한다.
 
 **show_msg 판단 기준:**
 - 사용자가 현재 테스크를 완료했으면 show_msg: true
