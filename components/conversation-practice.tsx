@@ -1085,13 +1085,13 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                     transition={{ duration: 0.3 }}
                   >
                     <div className="max-w-[80%] md:max-w-[70%]">
-                      <Card className="bg-blue-50 border-blue-200 border-2">
+                      <Card className="bg-amber-50 border-amber-200 border-2">
                         <CardContent className="p-3">
                           <div className="flex items-center gap-2 mb-1">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            <span className="text-xs font-medium text-blue-700">피드백</span>
+                            <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                            <span className="text-xs font-medium text-amber-700">피드백</span>
                           </div>
-                          <p className="text-sm font-medium text-blue-900">{message.text}</p>
+                          <p className="text-sm font-medium text-amber-900">{message.text}</p>
                         </CardContent>
                       </Card>
                     </div>
