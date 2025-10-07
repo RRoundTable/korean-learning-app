@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { ChatInputSchema, getModel, isDebugEnabled, UnifiedResponseSchema } from "../_shared"
+import { ChatInputSchema, getModel, isDebugEnabled, ConversationResponseSchema } from "../_shared"
 import { buildAssistantMessages } from "../prompts/assistant"
 
 export const runtime = "nodejs"
@@ -93,10 +93,10 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Validate unified response format
-    const validated = UnifiedResponseSchema.safeParse(jsonResponse)
+    // Validate conversation response format
+    const validated = ConversationResponseSchema.safeParse(jsonResponse)
     if (!validated.success) {
-      console.error("Unified response validation failed:", validated.error)
+      console.error("Conversation response validation failed:", validated.error)
       // Fallback to old format for backward compatibility
       return NextResponse.json({ 
         text: rawResponse,
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (isDebugEnabled()) {
-      console.log("[DEBUG] unified response:", validated.data)
+      console.log("[DEBUG] conversation response:", validated.data)
     }
 
     return NextResponse.json({

@@ -142,7 +142,7 @@ export class ApiClient {
 
   // Deprecated chat() removed. Use chatAssistant() and chatMetadata() instead.
 
-  // Unified assistant response (includes success check). Returns unified response format
+  // Conversation assistant response (includes success check). Returns conversation response format
   async chatAssistant(request: ChatRequest): Promise<{ 
     msg: string | null; 
     success: boolean; 
@@ -166,9 +166,9 @@ export class ApiClient {
     const data = await response.json()
     this.logResponse('POST', '/api/openai/chat/assistant', data)
     
-    // Handle both new unified format and legacy format for backward compatibility
+    // Handle both new conversation format and legacy format for backward compatibility
     if (data.msg !== undefined) {
-      // New unified format
+      // New conversation format
       return data as { 
         msg: string | null; 
         success: boolean; 
@@ -178,7 +178,7 @@ export class ApiClient {
         usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
       }
     } else {
-      // Legacy format - convert to unified format
+      // Legacy format - convert to conversation format
       return {
         msg: data.text || null,
         success: false, // Default to false for legacy responses

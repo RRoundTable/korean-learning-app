@@ -531,7 +531,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       }
 
       // Show feedback message if available (regardless of continue value)
-      if (unifiedResponse?.feedback) {
+      if (unifiedResponse && unifiedResponse.feedback) {
         setMessages(prev => prev.concat([{ 
           id: `feedback-${Date.now()}`, 
           role: "assistant", 
@@ -698,7 +698,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         }
 
         // Show feedback message if available (regardless of continue value)
-        if (unifiedResponse?.feedback) {
+        if (unifiedResponse && unifiedResponse.feedback) {
           setMessages(prev => prev.concat([{ 
             id: `feedback-${Date.now()}`, 
             role: "assistant", 
