@@ -4,8 +4,8 @@
   emits events for UI and returns utterance WAV blobs without STT.
 */
 import type * as OrtNS from "onnxruntime-web"
-import { defaultVadConfig, type VadConfig } from "./VadConfig.ts"
-import { encodeWavPCM16 } from "./wav.ts"
+import { defaultVadConfig, type VadConfig } from "./VadConfig"
+import { encodeWavPCM16 } from "./wav"
 
 export type VadEvents = {
   onLevel?: (rms: number) => void
@@ -96,7 +96,8 @@ export class VadEngine {
 
       // initialize RNN state if required
       if (this.stateInputName && !this.rnnStateTensor) {
-        this.rnnStateTensor = this.buildInitialStateTensor()
+        const ort = await getOrt()
+        this.rnnStateTensor = this.buildInitialStateTensor(ort)
       }
     } catch (e) {
       this.useEnergyFallback = true
@@ -206,7 +207,10 @@ export class VadEngine {
 
     if (this.stateInputName) {
       const stateInName = this.stateInputName as string
-      if (!this.rnnStateTensor) this.rnnStateTensor = this.buildInitialStateTensor()
+      if (!this.rnnStateTensor) {
+        const ort = await getOrt()
+        this.rnnStateTensor = this.buildInitialStateTensor(ort)
+      }
       if (this.rnnStateTensor) {
         feeds[stateInName] = this.rnnStateTensor
       }
@@ -227,12 +231,12 @@ export class VadEngine {
     if (this.probOutputName) {
       const probName = this.probOutputName as string
       if ((outputs as any)[probName]) {
-        probTensor = (outputs as any)[probName] as ort.Tensor
+        probTensor = (outputs as any)[probName] as OrtNS.Tensor
       }
     } else {
       // pick first non-state output
       const exclude = this.stateOutputName as string | undefined
-      const outputsRecord = outputs as unknown as Record<string, ort.Tensor>
+      const outputsRecord = outputs as unknown as Record<string, OrtNS.Tensor>
       const keys: string[] = Object.keys(outputsRecord)
       const firstKey = keys.find((k: string) => k !== exclude)
       if (firstKey !== undefined) {
@@ -263,7 +267,7 @@ export class VadEngine {
     return Math.sqrt(sum / frame.length)
   }
 
-  private buildInitialStateTensor(): ort.Tensor | undefined {
+  private buildInitialStateTensor(ort: typeof OrtNS): OrtNS.Tensor | undefined {
     if (!this.session || !this.stateInputName) return undefined
     const stateInName = this.stateInputName as string
     const meta = (this.session.inputMetadata as unknown as Record<string, { dimensions?: readonly (number | string)[] }> | undefined)?.[stateInName]

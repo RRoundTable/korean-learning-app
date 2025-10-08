@@ -9,17 +9,26 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Ensure ESM deps like onnxruntime-web get transpiled properly
+  transpilePackages: ["onnxruntime-web"],
+  experimental: {
+    esmExternals: "loose",
+  },
   webpack: (config, { isServer }) => {
-    // Ensure browser-friendly ORT build is used in client bundles
     config.resolve = config.resolve || {}
     config.resolve.alias = config.resolve.alias || {}
-    config.resolve.alias["onnxruntime-web"] = "onnxruntime-web/dist/ort-web.min.mjs"
-
+    // Ensure no stale alias maps onnxruntime-web to a non-exported subpath
+    if (config.resolve.alias["onnxruntime-web"]) {
+      delete config.resolve.alias["onnxruntime-web"]
+    }
     if (isServer) {
-      // Prevent importing the node ESM variant into the server bundle
       config.externals = config.externals || []
+      // Keep node bundle from attempting to include browser ESM
       config.externals.push({ "onnxruntime-web": "commonjs onnxruntime-web" })
     }
+    // Workaround: disable minification to avoid Terser parsing ESM import.meta in ort bundle
+    config.optimization = config.optimization || {}
+    config.optimization.minimize = false
     return config
   },
 }
