@@ -105,6 +105,7 @@ export default function KoreanLearningApp() {
       tasks: [
         { ko: "어떤 버거종류가 있는지 물어보세요.", en: "Ask about the menu" },
         { ko: "원하는 버거의 가격을 물어보세요.", en: "Ask about the price" },
+        { ko: "사이드 메뉴를 물어보세요.", en: "Ask about the price" },
         { ko: "제로콜라가 있는지 물어보세요.", en: "Ask if there is zero cola" },
         { ko: "제로콜라를 포함한 버거 세트 주문을 완료하세요.", en: "Complete the order" },
       ],
