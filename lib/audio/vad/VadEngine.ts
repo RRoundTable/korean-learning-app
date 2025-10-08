@@ -1,8 +1,9 @@
+"use client"
 /*
   Minimal VAD engine: loads silero ONNX, consumes frames from AudioWorklet,
   emits events for UI and returns utterance WAV blobs without STT.
 */
-import * as ort from "onnxruntime-web"
+import type * as OrtNS from "onnxruntime-web"
 import { defaultVadConfig, type VadConfig } from "./VadConfig.ts"
 import { encodeWavPCM16 } from "./wav.ts"
 
@@ -22,17 +23,25 @@ export type VadState =
   | "capturing"
   | "ended"
 
+let ortModule: typeof OrtNS | null = null
+async function getOrt(): Promise<typeof OrtNS> {
+  if (!ortModule) {
+    ortModule = await import("onnxruntime-web")
+  }
+  return ortModule
+}
+
 export class VadEngine {
   private config: VadConfig
   private events: VadEvents
-  private session?: ort.InferenceSession
+  private session?: OrtNS.InferenceSession
   private useEnergyFallback = false
   private inputName?: string
   private srInputName?: string
   private stateInputName?: string
   private probOutputName?: string
   private stateOutputName?: string
-  private rnnStateTensor?: ort.Tensor
+  private rnnStateTensor?: OrtNS.Tensor
   private audioContext?: AudioContext
   private workletNode?: AudioWorkletNode
   private state: VadState = "idle"
@@ -72,7 +81,8 @@ export class VadEngine {
 
   async init(modelUrl = "/models/silero-vad.onnx") {
     try {
-      this.session = await ort.InferenceSession.create(modelUrl, {
+      const { InferenceSession } = await getOrt()
+      this.session = await InferenceSession.create(modelUrl, {
         executionProviders: ["wasm"],
       })
       // heuristics for common silero-vad signatures
@@ -166,9 +176,10 @@ export class VadEngine {
       const p = Math.max(0, Math.min(1, rms / 0.05))
       return p
     }
-    const feeds: Record<string, ort.Tensor> = {}
+    const { Tensor } = await getOrt()
+    const feeds: Record<string, OrtNS.Tensor> = {}
     const inputName = this.inputName ?? this.session.inputNames?.[0] ?? "input"
-    feeds[inputName] = new ort.Tensor("float32", frame, [1, frame.length])
+    feeds[inputName] = new Tensor("float32", frame, [1, frame.length])
 
     if (this.srInputName) {
       const srName = this.srInputName as string
@@ -180,15 +191,15 @@ export class VadEngine {
       if (wantsInt64) {
         // @ts-ignore BigInt64Array existence differs per env
         const arr = new BigInt64Array([BigInt(sr)])
-        feeds[srName] = new ort.Tensor("int64", arr, shape)
+        feeds[srName] = new Tensor("int64", arr, shape)
       } else {
         // Prefer int64 for compatibility if meta.type is missing/unknown
         try {
           // @ts-ignore BigInt64Array existence differs per env
           const arr = new BigInt64Array([BigInt(sr)])
-          feeds[srName] = new ort.Tensor("int64", arr, shape)
+          feeds[srName] = new Tensor("int64", arr, shape)
         } catch {
-          feeds[srName] = new ort.Tensor("int32", Int32Array.of(sr), shape)
+          feeds[srName] = new Tensor("int32", Int32Array.of(sr), shape)
         }
       }
     }
@@ -207,12 +218,12 @@ export class VadEngine {
     if (this.stateOutputName) {
       const stateOutName = this.stateOutputName as string
       if ((outputs as any)[stateOutName]) {
-        this.rnnStateTensor = (outputs as any)[stateOutName] as ort.Tensor
+        this.rnnStateTensor = (outputs as any)[stateOutName] as OrtNS.Tensor
       }
     }
 
     // choose probability-like output
-    let probTensor: ort.Tensor | undefined
+    let probTensor: OrtNS.Tensor | undefined
     if (this.probOutputName) {
       const probName = this.probOutputName as string
       if ((outputs as any)[probName]) {
