@@ -80,7 +80,16 @@ export type ConversationResponse = z.infer<typeof ConversationResponseSchema>
 // Prompt building moved to app/api/openai/chat/prompts/*
 
 export function getModel() {
-  return process.env.OPENAI_CHAT_MODEL || "gpt-4.1-nano"
+  return process.env.OPENAI_CHAT_MODEL || "gpt-5"
+}
+
+export function isReasoningModel(model?: string): boolean {
+  const modelName = model || getModel()
+  return modelName.startsWith("gpt-5")
+}
+
+export function getReasoningEffort(model?: string): string | undefined {
+  return isReasoningModel(model) ? "minimal" : undefined
 }
 
 export function isDebugEnabled() {
@@ -92,27 +101,35 @@ export async function translateToEnglish(koreanText: string): Promise<string> {
     throw new Error("Missing OPENAI_API_KEY")
   }
 
+  const model = "gpt-5"
+  const requestBody: any = {
+    model,
+    messages: [
+      {
+        role: "system",
+        content: "You are a professional translator. Translate the given Korean text to natural, fluent English. Return only the translation without any additional text or explanations."
+      },
+      {
+        role: "user",
+        content: koreanText
+      }
+    ],
+    max_tokens: 500,
+    temperature: 0.3
+  }
+  
+  const reasoningEffort = getReasoningEffort(model)
+  if (reasoningEffort) {
+    requestBody.reasoning_effort = reasoningEffort
+  }
+
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model: "gpt-4.1-nano",
-      messages: [
-        {
-          role: "system",
-          content: "You are a professional translator. Translate the given Korean text to natural, fluent English. Return only the translation without any additional text or explanations."
-        },
-        {
-          role: "user",
-          content: koreanText
-        }
-      ],
-      max_tokens: 500,
-      temperature: 0.3
-    })
+    body: JSON.stringify(requestBody)
   })
 
   if (!response.ok) {

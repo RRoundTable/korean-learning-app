@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
+import { getReasoningEffort } from "../chat/_shared"
 
 const TranslateInputSchema = z.object({
   text: z.string().min(1, "Text is required"),
@@ -23,27 +24,35 @@ export async function POST(request: NextRequest) {
 
     const { text, targetLanguage } = parsed.data
 
+    const model = "gpt-5"
+    const requestBody: any = {
+      model,
+      messages: [
+        {
+          role: "system",
+          content: `You are a professional translator specializing in Korean to ${targetLanguage} translation. Translate the following Korean text accurately and naturally. Maintain the original meaning, tone, and context. Return only the translation without any additional text, explanations, or formatting.`
+        },
+        {
+          role: "user", 
+          content: text
+        }
+      ],
+      max_tokens: 2000,
+      temperature: 0.3
+    }
+    
+    const reasoningEffort = getReasoningEffort(model)
+    if (reasoningEffort) {
+      requestBody.reasoning_effort = reasoningEffort
+    }
+
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: `You are a professional translator specializing in Korean to ${targetLanguage} translation. Translate the following Korean text accurately and naturally. Maintain the original meaning, tone, and context. Return only the translation without any additional text, explanations, or formatting.`
-          },
-          {
-            role: "user", 
-            content: text
-          }
-        ],
-        max_tokens: 2000,
-        temperature: 0.3
-      })
+      body: JSON.stringify(requestBody)
     })
 
     if (!response.ok) {
