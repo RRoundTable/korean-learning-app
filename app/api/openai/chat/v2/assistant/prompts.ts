@@ -30,7 +30,16 @@ export const ASSISTANT_SYSTEM_PROMPT = `너는 지금 한국어로 역할극을 
 export function buildAssistantMessages(
   currentTask: { id: string; ko: string; en?: string }, 
   userMsg: string,
-  memoryHistory?: Array<{ role: "user" | "assistant"; text: string }>
+  memoryHistory?: Array<{ role: "user" | "assistant"; text: string }>,
+  scenarioContext?: {
+    scenarioId: string | number;
+    title: string;
+    assistantRole?: string;
+    userRole?: string;
+    description?: string;
+    constraints?: Record<string, any>;
+    tasks?: Array<{ id: string; ko: string; en?: string }>;
+  }
 ) {
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
     {
@@ -38,6 +47,30 @@ export function buildAssistantMessages(
       content: `${ASSISTANT_SYSTEM_PROMPT}\n\n현재 테스크: ${currentTask.ko}`
     }
   ]
+
+  // Add scenario context if provided
+  if (scenarioContext) {
+    const scenarioLines: string[] = []
+    scenarioLines.push(`시나리오 제목: ${scenarioContext.title}`)
+    if (scenarioContext.assistantRole) scenarioLines.push(`나의 역할: ${scenarioContext.assistantRole}`)
+    if (scenarioContext.userRole) scenarioLines.push(`사용자 역할: ${scenarioContext.userRole}`)
+    if (scenarioContext.description) scenarioLines.push(`시나리오 설명: ${scenarioContext.description}`)
+    
+    // Add task list if available
+    if (scenarioContext.tasks && scenarioContext.tasks.length > 0) {
+      scenarioLines.push(`\n전체 테스크 목록:`)
+      scenarioContext.tasks.forEach((task, index) => {
+        scenarioLines.push(`${index + 1}. ${task.ko}`)
+      })
+    }
+    
+    if (scenarioLines.length > 0) {
+      messages.push({
+        role: "system" as const,
+        content: "\n" + scenarioLines.join("\n") + "\n"
+      })
+    }
+  }
 
   // Add chat history if provided
   if (memoryHistory && memoryHistory.length > 0) {

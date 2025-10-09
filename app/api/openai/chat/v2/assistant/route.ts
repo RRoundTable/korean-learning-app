@@ -21,8 +21,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    const { currentTask, user_msg, memoryHistory } = parsed.data
-    const messages = buildAssistantMessages(currentTask, user_msg, memoryHistory)
+    const { currentTask, user_msg, memoryHistory, scenarioContext } = parsed.data
+    const messages = buildAssistantMessages(currentTask, user_msg, memoryHistory, scenarioContext)
     const model = getModel()
 
     const requestBody: any = { 

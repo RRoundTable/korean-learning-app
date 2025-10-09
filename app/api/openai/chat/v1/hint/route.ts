@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { ChatInputSchema, isDebugEnabled, getModel, getReasoningEffort } from "../../_shared"
-import { buildHintMessages } from "../../prompts/hint"
+import { buildHintMessages } from "../prompts/hint"
 
 export const runtime = "nodejs"
 

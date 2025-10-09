@@ -38,5 +38,3 @@ export const AssistantResponseSchema = z.object({
 })
 
 export type AssistantResponse = z.infer<typeof AssistantResponseSchema>
-
-

@@ -60,5 +60,3 @@ export function buildHintMessages(options: {
 
   return messages
 }
-
-

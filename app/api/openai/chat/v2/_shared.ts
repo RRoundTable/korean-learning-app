@@ -14,6 +14,21 @@ export const V2InputSchema = z.object({
       text: z.string().min(1),
     })
   ).optional(),
+  scenarioContext: z.object({
+    scenarioId: z.union([z.string(), z.number()]),
+    title: z.string(),
+    assistantRole: z.string().optional(),
+    userRole: z.string().optional(),
+    description: z.string().optional(),
+    constraints: z.record(z.any()).optional(),
+    tasks: z.array(
+      z.object({
+        id: z.string(),
+        ko: z.string(),
+        en: z.string().optional(),
+      })
+    ).optional(),
+  }).optional(),
 })
 
 export type V2Input = z.infer<typeof V2InputSchema>

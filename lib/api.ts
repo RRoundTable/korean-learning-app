@@ -215,7 +215,8 @@ export class ApiClient {
     const v2Request = {
       currentTask: request.currentTask,
       user_msg: request.userMessage,
-      memoryHistory: request.memoryHistory
+      memoryHistory: request.memoryHistory,
+      scenarioContext: request.scenarioContext
     }
 
     try {
@@ -255,7 +256,7 @@ export class ApiClient {
       // If current task fails, only mark current task as failed
       const totalTasks = request.scenarioContext?.tasks?.length || 1
       const currentTaskIndex = request.scenarioContext?.tasks?.findIndex(
-        (task: any) => task.ko === request.currentTask.ko
+        (task: any) => task.ko === request.currentTask?.ko
       ) || 0
       
       const task_success = new Array(totalTasks).fill(false)
@@ -283,7 +284,7 @@ export class ApiClient {
     }
   }
 
-  private async callV2Assistant(request: { currentTask: any; user_msg: string }): Promise<string> {
+  private async callV2Assistant(request: { currentTask: any; user_msg: string; memoryHistory?: any; scenarioContext?: any }): Promise<string> {
     const response = await fetch(`${this.baseUrl}/api/openai/chat/v2/assistant`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -293,7 +294,7 @@ export class ApiClient {
     return await response.text()
   }
 
-  private async callV2TaskSuccess(request: { currentTask: any; user_msg: string }): Promise<{ currentTask: boolean }> {
+  private async callV2TaskSuccess(request: { currentTask: any; user_msg: string; memoryHistory?: any; scenarioContext?: any }): Promise<{ currentTask: boolean }> {
     const response = await fetch(`${this.baseUrl}/api/openai/chat/v2/task-success`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -303,7 +304,7 @@ export class ApiClient {
     return await response.json()
   }
 
-  private async callV2Feedback(request: { currentTask: any; user_msg: string }): Promise<string> {
+  private async callV2Feedback(request: { currentTask: any; user_msg: string; memoryHistory?: any; scenarioContext?: any }): Promise<string> {
     const response = await fetch(`${this.baseUrl}/api/openai/chat/v2/feedback`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

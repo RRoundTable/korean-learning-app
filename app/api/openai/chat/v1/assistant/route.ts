@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { ChatInputSchema, getModel, isDebugEnabled, getReasoningEffort } from "../../_shared"
-import { buildAssistantMessages } from "../../prompts/assistant"
-import { AssistantResponseSchema } from "../../prompts/types"
+import { buildAssistantMessages } from "../prompts/assistant"
+import { AssistantResponseSchema } from "../prompts/types"
 
 export const runtime = "nodejs"
 
