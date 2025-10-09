@@ -89,11 +89,13 @@ export class ApiClient {
   private baseUrl: string
   private debugMode: boolean
   private audioCache: Map<string, string> = new Map()
+  private useV2Api: boolean
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl
     this.debugMode = process.env.NODE_ENV === 'development' && 
                     process.env.NEXT_PUBLIC_DEBUG_MODE === 'true'
+    this.useV2Api = process.env.NEXT_PUBLIC_USE_API_VERSION === 'v2'
   }
 
   private logRequest(method: string, url: string, data?: any) {
@@ -151,7 +153,12 @@ export class ApiClient {
     createdAt?: string;
     usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
   }> {
-    const url = `${this.baseUrl}/api/openai/chat/assistant`
+    // Use v2 API if enabled, otherwise use v1
+    if (this.useV2Api) {
+      return this.chatAssistantV2(request)
+    }
+    
+    const url = `${this.baseUrl}/api/openai/chat/v1/assistant`
     this.logRequest('POST', url, request)
     const response = await fetch(url, {
       method: 'POST',
@@ -192,10 +199,124 @@ export class ApiClient {
     }
   }
 
+  // V2 API implementation with parallel processing
+  private async chatAssistantV2(request: ChatRequest): Promise<{ 
+    msg: string | null; 
+    show_msg: boolean; 
+    feedback: string | null;
+    task_success: boolean[];
+    createdAt?: string;
+    usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+  }> {
+    if (!request.currentTask) {
+      throw new Error('currentTask is required for v2 API')
+    }
+
+    const v2Request = {
+      currentTask: request.currentTask,
+      user_msg: request.userMessage,
+      memoryHistory: request.memoryHistory
+    }
+
+    try {
+      // Call all 3 v2 APIs in parallel
+      const [assistantRes, taskSuccessRes, feedbackRes] = await Promise.allSettled([
+        this.callV2Assistant(v2Request),
+        this.callV2TaskSuccess(v2Request),
+        this.callV2Feedback(v2Request)
+      ])
+
+      let assistant: string | null = null
+      let feedback: string | null = null
+      let taskSuccess: boolean = false
+
+      // Process assistant response
+      if (assistantRes.status === 'fulfilled') {
+        assistant = assistantRes.value
+      }
+
+      // Process task success response
+      if (taskSuccessRes.status === 'fulfilled') {
+        taskSuccess = taskSuccessRes.value.currentTask
+      }
+
+      // Process feedback response
+      if (feedbackRes.status === 'fulfilled') {
+        feedback = feedbackRes.value
+      }
+
+      // Determine what to show based on task success
+      const show_msg = taskSuccess
+      const msg = taskSuccess ? assistant : null
+      const finalFeedback = taskSuccess ? null : feedback
+
+      // Create task_success array compatible with v1 format
+      // If current task is successful, mark all previous tasks as successful
+      // If current task fails, only mark current task as failed
+      const totalTasks = request.scenarioContext?.tasks?.length || 1
+      const currentTaskIndex = request.scenarioContext?.tasks?.findIndex(
+        (task: any) => task.ko === request.currentTask.ko
+      ) || 0
+      
+      const task_success = new Array(totalTasks).fill(false)
+      
+      if (taskSuccess) {
+        // Current task succeeded: mark all tasks up to current as successful
+        for (let i = 0; i <= currentTaskIndex; i++) {
+          task_success[i] = true
+        }
+      } else {
+        // Current task failed: only mark current task as failed
+        task_success[currentTaskIndex] = false
+      }
+
+      return {
+        msg,
+        show_msg,
+        feedback: finalFeedback,
+        task_success,
+        createdAt: new Date().toISOString()
+      }
+    } catch (error) {
+      console.error('V2 API error:', error)
+      throw new Error('V2 API failed')
+    }
+  }
+
+  private async callV2Assistant(request: { currentTask: any; user_msg: string }): Promise<string> {
+    const response = await fetch(`${this.baseUrl}/api/openai/chat/v2/assistant`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request)
+    })
+    if (!response.ok) throw new Error(`Assistant v2 failed: ${response.status}`)
+    return await response.text()
+  }
+
+  private async callV2TaskSuccess(request: { currentTask: any; user_msg: string }): Promise<{ currentTask: boolean }> {
+    const response = await fetch(`${this.baseUrl}/api/openai/chat/v2/task-success`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request)
+    })
+    if (!response.ok) throw new Error(`Task success v2 failed: ${response.status}`)
+    return await response.json()
+  }
+
+  private async callV2Feedback(request: { currentTask: any; user_msg: string }): Promise<string> {
+    const response = await fetch(`${this.baseUrl}/api/openai/chat/v2/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request)
+    })
+    if (!response.ok) throw new Error(`Feedback v2 failed: ${response.status}`)
+    return await response.text()
+  }
+
   // Deprecated: chatCheckSuccess removed - now integrated into chatAssistant
 
   async chatHint(request: ChatRequest): Promise<{ hint: string; hintTranslateEn?: string | null }> {
-    const url = `${this.baseUrl}/api/openai/chat/hint`
+    const url = `${this.baseUrl}/api/openai/chat/v1/hint`
     this.logRequest('POST', url, request)
     const response = await fetch(url, {
       method: 'POST',
