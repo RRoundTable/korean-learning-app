@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { getReasoningEffort } from "../chat/_shared"
-import { getModelConfig, ModelType } from "@/lib/models/config"
+import { getReasoningEffort, getTranslationModel } from "./_shared"
 
 const TranslateInputSchema = z.object({
   text: z.string().min(1, "Text is required"),
@@ -25,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     const { text, targetLanguage } = parsed.data
 
-    const model = getModelConfig(ModelType.TRANSLATE).model
+    const model = getTranslationModel()
     const requestBody: any = {
       model,
       messages: [
