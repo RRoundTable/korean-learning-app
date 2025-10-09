@@ -128,8 +128,8 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     stop: vadStop,
   } = useVad()
 
-  // TEMP: disable initial TTS autoplay
-  const ENABLE_INITIAL_TTS = false
+  // Enable initial TTS autoplay for voice mode only
+  const ENABLE_INITIAL_TTS = !textOnlyMode
 
   // VAD 발화 구간 처리 - UI 상태 제거로 리렌더링 완전 제거
   useEffect(() => {
