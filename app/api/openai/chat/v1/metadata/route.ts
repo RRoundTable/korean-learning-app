@@ -1,6 +1,6 @@
 // DEPRECATED: This route is superseded by check-success and hint routes.
 import { NextRequest, NextResponse } from "next/server"
-import { ChatInputSchema } from "../../_shared"
+import { ChatInputSchema } from "../_shared"
 
 export const runtime = "nodejs"
 
