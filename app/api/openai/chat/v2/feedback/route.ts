@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { V2InputSchema, FeedbackResponseSchema, getModel, isDebugEnabled, getReasoningEffort } from "../_shared"
+import { getModelConfig, ModelType } from "@/lib/models/config"
 import { buildFeedbackMessages } from "./prompts"
 
 export const runtime = "nodejs"
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     const { currentTask, user_msg, memoryHistory, scenarioContext } = parsed.data
     const messages = buildFeedbackMessages(currentTask, user_msg, memoryHistory, scenarioContext)
-    const model = getModel()
+    const model = getModelConfig(ModelType.CHAT_FEEDBACK).model
 
     const requestBody: any = { 
       model, 

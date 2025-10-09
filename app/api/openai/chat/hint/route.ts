@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { ChatInputSchema, isDebugEnabled, getModel, getReasoningEffort } from "../_shared"
+import { getModelConfig, ModelType } from "@/lib/models/config"
 import { buildHintMessages } from "./v1/prompts/hint"
 
 export const runtime = "nodejs"
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
       userMessage: input.userMessage,
     })
 
-    const model = getModel()
+    const model = getModelConfig(ModelType.CHAT_HINT).model
     const requestBody: any = { model, messages }
     
     const reasoningEffort = getReasoningEffort(model)

@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { getModelConfig, ModelType, isReasoningModel, getReasoningEffort, isDebugEnabled } from "@/lib/models/config"
 
 export const ChatInputSchema = z.object({
   sessionId: z.string().min(1, "sessionId is required"),
@@ -80,28 +81,18 @@ export type ConversationResponse = z.infer<typeof ConversationResponseSchema>
 // Prompt building moved to app/api/openai/chat/prompts/*
 
 export function getModel() {
-  return process.env.OPENAI_CHAT_MODEL || "gpt-5"
+  return getModelConfig(ModelType.CHAT_ASSISTANT).model
 }
 
-export function isReasoningModel(model?: string): boolean {
-  const modelName = model || getModel()
-  return modelName.startsWith("gpt-5")
-}
-
-export function getReasoningEffort(model?: string): string | undefined {
-  return isReasoningModel(model) ? "minimal" : undefined
-}
-
-export function isDebugEnabled() {
-  return process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEBUG_MODE === "true"
-}
+// Re-export from centralized config for backward compatibility
+export { isReasoningModel, getReasoningEffort, isDebugEnabled }
 
 export async function translateToEnglish(koreanText: string): Promise<string> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("Missing OPENAI_API_KEY")
   }
 
-  const model = "gpt-5"
+  const model = getModelConfig(ModelType.TRANSLATE).model
   const requestBody: any = {
     model,
     messages: [

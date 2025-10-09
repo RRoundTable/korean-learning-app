@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { getModelConfig, ModelType, isReasoningModel, getReasoningEffort, isDebugEnabled } from "@/lib/models/config"
 
 // Common input schema for all v2 APIs
 export const V2InputSchema = z.object({
@@ -47,18 +48,8 @@ export type FeedbackResponse = z.infer<typeof FeedbackResponseSchema>
 
 // Utility functions
 export function getModel() {
-  return process.env.OPENAI_CHAT_MODEL || "gpt-5"
+  return getModelConfig(ModelType.CHAT_ASSISTANT).model
 }
 
-export function isReasoningModel(model?: string): boolean {
-  const modelName = model || getModel()
-  return modelName.startsWith("gpt-5")
-}
-
-export function getReasoningEffort(model?: string): string | undefined {
-  return isReasoningModel(model) ? "minimal" : undefined
-}
-
-export function isDebugEnabled() {
-  return process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_DEBUG_MODE === "true"
-}
+// Re-export from centralized config for backward compatibility
+export { isReasoningModel, getReasoningEffort, isDebugEnabled }

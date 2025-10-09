@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { getReasoningEffort } from "../chat/_shared"
+import { getModelConfig, ModelType } from "@/lib/models/config"
 
 const TranslateInputSchema = z.object({
   text: z.string().min(1, "Text is required"),
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     const { text, targetLanguage } = parsed.data
 
-    const model = "gpt-5"
+    const model = getModelConfig(ModelType.TRANSLATE).model
     const requestBody: any = {
       model,
       messages: [
@@ -37,8 +38,7 @@ export async function POST(request: NextRequest) {
           content: text
         }
       ],
-      max_tokens: 2000,
-      temperature: 0.3
+      max_completion_tokens: 2000
     }
     
     const reasoningEffort = getReasoningEffort(model)
