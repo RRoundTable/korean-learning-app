@@ -60,13 +60,13 @@ export default function KoreanLearningApp() {
       },
       
       tasks: [
-        { ko: "로빈에게 인사와 함께 자기소개를 하세요.", en: "Ask your new friend a question about themselves" },
-        { ko: "로빈의 취미에 대해서 물어보세요.", en: "Talk about your hometown and job" },
+        { ko: "로빈에게 인사와 함께 자기소개를 하세요.", en: "Introduce yourself and greet Robin" },
+        { ko: "로빈의 취미에 대해서 물어보세요.", en: "Ask about Robin's hobbies" },
         { ko: "좋아하는 음료 종류를 물어보세요.", en: "Ask about the favorite drink" },
-        { ko: "로빈과 자유로운 대화를 나눠보세요.", en: "Talk about your hometown and job" },
+        { ko: "로빈과 자유로운 대화를 나눠보세요.", en: "Have a free conversation with Robin" },
         {
           ko: "로빈과 다음 주말에 커피 마시러 가자고 해보세요.",
-          en: "Ask your new friend out for coffee next weekend",
+          en: "Ask Robin out for coffee next weekend",
         },
       ],
       ttsVoice: "nova",
@@ -105,7 +105,7 @@ export default function KoreanLearningApp() {
       tasks: [
         { ko: "어떤 버거종류가 있는지 물어보세요.", en: "Ask about the menu" },
         { ko: "원하는 버거의 가격을 물어보세요.", en: "Ask about the price" },
-        { ko: "사이드 메뉴를 물어보세요.", en: "Ask about the price" },
+        { ko: "사이드 메뉴를 물어보세요.", en: "Ask about side menu options" },
         { ko: "제로콜라가 있는지 물어보세요.", en: "Ask if there is zero cola" },
         { ko: "제로콜라를 포함한 버거 세트 주문을 완료하세요.", en: "Complete the order" },
       ],
@@ -129,10 +129,10 @@ export default function KoreanLearningApp() {
       
       tasks: [
         { ko: "점원에게 찾고 있는 신발 종류를 말해보세요.", en: "Describe the style of sneakers you want" },
-        { ko: "점원에게 찾는 신발사이즈를 말해보세요.", en: "Check the size and ask to try them on" },
-        { ko: "신발 사이즈가 크네요. 점원에게 더 큰 신발 사이즈를 요청해보세요.", en: "Ask about the price and discount benefits" },
-        { ko: "할인 행사를 하고 있는지 물어보세요.", en: "Decide to purchase and check payment methods" },
-        { ko: "카드결제를 하고 싶다고 말해보세요.", en: "Decide to purchase and check payment methods" },
+        { ko: "점원에게 찾는 신발사이즈를 말해보세요.", en: "Tell the staff your shoe size" },
+        { ko: "신발 사이즈가 크네요. 점원에게 더 큰 신발 사이즈를 요청해보세요.", en: "Ask for a larger shoe size" },
+        { ko: "할인 행사를 하고 있는지 물어보세요.", en: "Ask if there are any discount sales" },
+        { ko: "카드결제를 하고 싶다고 말해보세요.", en: "Say you want to pay by card" },
       ],
       ttsVoice: "coral",
       ttsInstructions: "Speak in an energetic, helpful retail assistant tone. Be enthusiastic about products and helpful to customers. Sound like a knowledgeable shoe salesperson.",
