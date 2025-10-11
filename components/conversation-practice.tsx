@@ -76,6 +76,10 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   const [typedMessage, setTypedMessage] = useState<string>("")
   const [translatingMessageId, setTranslatingMessageId] = useState<string | null>(null)
   
+  // 마이크 안내 관련 상태
+  const [showInitialMicPrompt, setShowInitialMicPrompt] = useState(false)
+  const [hasUserStartedRecording, setHasUserStartedRecording] = useState(false)
+  
   // Show success popup only when all tasks are completed (by success)
   useEffect(() => {
     if (progress.total > 0 && progress.completed === progress.total) {
@@ -195,7 +199,13 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         hasPlayedInitialTtsRef.current = true
 
         await new Promise<void>((resolve) => {
-          audio.onended = () => resolve()
+          audio.onended = () => {
+            // Initial message TTS 완료 시 마이크 안내 표시
+            if (!hasUserStartedRecording) {
+              setShowInitialMicPrompt(true)
+            }
+            resolve()
+          }
           audio.onerror = () => resolve()
           audio.play().catch(() => resolve())
         })
@@ -244,6 +254,12 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       
       // VAD 발화 구간 초기화 (UI 상태 제거)
       vadUtterancesRef.current = [] // ref만 초기화
+      
+      // 사용자가 첫 녹음을 시작하면 마이크 안내 숨김
+      if (!hasUserStartedRecording) {
+        setHasUserStartedRecording(true)
+        setShowInitialMicPrompt(false)
+      }
       
       // 발화 시작 시 힌트 자동 숨김
       if (showHint) {
@@ -1397,12 +1413,13 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
 
             <motion.div
               animate={{
-                scale: isRecording ? [1, 1.1, 1] : 1,
+                scale: isRecording ? [1, 1.1, 1] : showInitialMicPrompt ? [1, 1.05, 1] : 1,
               }}
               transition={{
                 duration: 1,
-                repeat: isRecording ? Infinity : 0,
+                repeat: isRecording ? Infinity : showInitialMicPrompt ? Infinity : 0,
               }}
+              className="relative"
             >
               <Button
                 size="lg"
@@ -1413,6 +1430,8 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                     ? "bg-yellow-500 hover:bg-yellow-600"
                     : isAgentSpeaking
                     ? "bg-blue-500 hover:bg-blue-600 shadow-lg shadow-blue-500/25"
+                    : showInitialMicPrompt
+                    ? "bg-primary hover:bg-primary/90 shadow-lg shadow-primary/50 ring-2 ring-primary/30"
                     : "bg-primary hover:bg-primary/90"
                 }`}
                 onClick={handleMicPress}
@@ -1428,6 +1447,22 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                   <Mic className="w-8 h-8" />
                 )}
               </Button>
+              
+              {/* 마이크 안내 메시지 */}
+              <AnimatePresence>
+                {showInitialMicPrompt && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                    transition={{ duration: 0.3 }}
+                    className="absolute -top-16 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-4 py-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 whitespace-nowrap text-sm font-medium"
+                  >
+                    Click the microphone to start conversation
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-white dark:border-t-gray-800"></div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
 
             {/* 힌트 버튼 - 새로 추가 */}
