@@ -8,8 +8,10 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Volume2, Languages, Eye, Bookmark, Mic, X, ArrowUp, Settings, Lightbulb, Loader2 } from "lucide-react"
 import { useLearningContext } from "@/contexts/LearningContext"
 import { apiClient } from "@/lib/api"
-import { SuccessPopup } from "@/components/success-popup"
+import { EvaluationResultsPopup } from "@/components/evaluation-results-popup"
 import { useVad } from "@/hooks/use-vad"
+import { evaluateKoreanLevel } from "@/lib/api/evaluation"
+import { EvaluationInput, EvaluationResponse } from "@/lib/types/evaluation"
 
 interface ConversationPracticeProps {
   scenario: any
@@ -69,7 +71,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   const [hintTaskIndex, setHintTaskIndex] = useState<number | null>(null)
   const [isCancelled, setIsCancelled] = useState(false)
   const [cancelledMessageId, setCancelledMessageId] = useState<string | null>(null)
-  const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+  const [showEvaluationPopup, setShowEvaluationPopup] = useState(false)
+  const [evaluationData, setEvaluationData] = useState<EvaluationResponse | null>(null)
+  const [isEvaluating, setIsEvaluating] = useState(false)
   const [textOnlyMode, setTextOnlyMode] = useState<boolean>(
     () => (typeof process !== "undefined" && process.env.NEXT_PUBLIC_TEXT_ONLY_CHAT === "true") || false
   )
@@ -80,12 +84,60 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   const [showInitialMicPrompt, setShowInitialMicPrompt] = useState(false)
   const [hasUserStartedRecording, setHasUserStartedRecording] = useState(false)
   
-  // Show success popup only when all tasks are completed (by success)
+  // Show evaluation popup directly when all tasks are completed
   useEffect(() => {
     if (progress.total > 0 && progress.completed === progress.total) {
-      setShowSuccessPopup(true)
+      handleEvaluation()
     }
   }, [progress.completed, progress.total])
+
+  // 평가 API 호출 함수
+  const handleEvaluation = async () => {
+    if (isEvaluating) return
+    
+    try {
+      setIsEvaluating(true)
+      
+      // 완료된 태스크 목록 생성
+      const completedTasks = scenario.tasks?.slice(0, progress.completed).map((task: any, index: number) => ({
+        id: `t-${index}`,
+        ko: task.ko,
+        en: task.en,
+        completedAt: new Date().toISOString()
+      })) || []
+
+      // 채팅 히스토리 생성
+      const chatHistory = messages
+        .filter(msg => !msg.isWaiting && msg.text)
+        .map(msg => ({
+          role: msg.isFeedback ? "feedback" as const : msg.role,
+          content: msg.text,
+          timestamp: new Date().toISOString()
+        }))
+
+      // 평가 입력 데이터 구성
+      const evaluationInput: EvaluationInput = {
+        scenarioInfo: {
+          title: scenario.title,
+          task: scenario.description || "",
+          description: scenario.description || ""
+        },
+        chatHistory,
+        completedTasks
+      }
+
+      // 평가 API 호출
+      const result = await evaluateKoreanLevel(evaluationInput)
+      setEvaluationData(result)
+      setShowEvaluationPopup(true)
+      
+    } catch (error) {
+      console.error("Evaluation error:", error)
+      alert("평가 중 오류가 발생했습니다. 다시 시도해주세요.")
+    } finally {
+      setIsEvaluating(false)
+    }
+  }
   
   // VAD 관련 상태 (UI에서 제거, 내부 처리만 유지)
   const [vadErrorMessage, setVadErrorMessage] = useState<string | null>(null)
@@ -920,14 +972,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     }
   }
 
-  const handleSuccessPopupClose = () => {
-    setShowSuccessPopup(false)
-  }
-
-  const handleSuccessPopupAnalyze = () => {
-    // TODO: Implement conversation analysis functionality
-    
-    setShowSuccessPopup(false)
+  const handleEvaluationPopupClose = () => {
+    setShowEvaluationPopup(false)
+    setEvaluationData(null)
   }
 
   const handleMessageTranslationClick = async (messageId: string, text: string) => {
@@ -1527,11 +1574,12 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         </div>
       </div>
 
-      {/* Success Popup */}
-      <SuccessPopup
-        isOpen={showSuccessPopup}
-        onClose={handleSuccessPopupClose}
-        onAnalyze={handleSuccessPopupAnalyze}
+      {/* Evaluation Results Popup */}
+      <EvaluationResultsPopup
+        isOpen={showEvaluationPopup}
+        onClose={handleEvaluationPopupClose}
+        evaluationData={evaluationData}
+        isLoading={isEvaluating}
       />
     </div>
   )
