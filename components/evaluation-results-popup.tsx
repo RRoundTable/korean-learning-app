@@ -72,7 +72,7 @@ export function EvaluationResultsPopup({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto"
         onClick={onClose}
       >
         <motion.div
@@ -80,7 +80,7 @@ export function EvaluationResultsPopup({
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
           transition={{ type: "spring", duration: 0.3 }}
-          className="w-full max-w-2xl"
+          className="w-full max-w-2xl max-h-[85vh] sm:max-h-[80vh] lg:max-h-[90vh] overflow-y-auto scroll-smooth"
           onClick={(e) => e.stopPropagation()}
         >
           <Card className="bg-card border-2 border-primary/20 shadow-2xl">
@@ -233,7 +233,8 @@ export function EvaluationResultsPopup({
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.3 }}
-                      className="space-y-4"
+                      className="space-y-4 max-h-[50vh] sm:max-h-[55vh] lg:max-h-[60vh] overflow-y-auto scroll-smooth"
+                      style={{ scrollbarWidth: 'thin' }}
                     >
                       {EVALUATION_AXES.map((axis) => {
                         const axisData = evaluationData.axes[axis.key]
