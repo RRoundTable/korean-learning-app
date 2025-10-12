@@ -1140,25 +1140,32 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       )}
       
       {/* 테스크 가이던스 메시지 - 하단 위치 */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {showTaskGuidance && (
           <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.9 }}
+            initial={{ opacity: 0, y: 10, scale: 0.9, height: 0 }}
             animate={{ 
               opacity: 1, 
               y: 0, 
-              scale: [1, 1.05, 1]
+              scale: [1, 1.05, 1],
+              height: "auto"
             }}
-            exit={{ opacity: 0, y: 10, scale: 0.9 }}
+            exit={{ 
+              opacity: 0, 
+              y: 10, 
+              scale: 0.9,
+              height: 0
+            }}
             transition={{ 
               duration: 0.3,
+              height: { duration: 0.3 },
               scale: {
                 duration: 1,
                 repeat: Infinity,
                 ease: "easeInOut"
               }
             }}
-            className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 px-3 py-2 rounded-lg shadow-lg border border-blue-200 dark:border-blue-700 text-sm font-medium mt-2"
+            className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 px-3 py-2 rounded-lg shadow-lg border border-blue-200 dark:border-blue-700 text-sm font-medium mt-2 overflow-hidden"
           >
             {taskGuidanceText}
             <div className="absolute -top-2 left-4 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-blue-50 dark:border-b-blue-900/20"></div>
