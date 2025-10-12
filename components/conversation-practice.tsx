@@ -9,6 +9,7 @@ import { Volume2, Languages, Eye, Bookmark, Mic, X, ArrowUp, Settings, Lightbulb
 import { useLearningContext } from "@/contexts/LearningContext"
 import { apiClient } from "@/lib/api"
 import { EvaluationResultsPopup } from "@/components/evaluation-results-popup"
+import { EvaluationLoading } from "@/components/ui/evaluation-loading"
 import { useVad } from "@/hooks/use-vad"
 import { evaluateKoreanLevel } from "@/lib/api/evaluation"
 import { EvaluationInput, EvaluationResponse } from "@/lib/types/evaluation"
@@ -1573,6 +1574,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           )}
         </div>
       </div>
+
+      {/* Evaluation Loading Overlay */}
+      <EvaluationLoading isVisible={isEvaluating} />
 
       {/* Evaluation Results Popup */}
       <EvaluationResultsPopup
