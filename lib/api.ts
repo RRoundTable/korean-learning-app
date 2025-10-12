@@ -252,23 +252,31 @@ export class ApiClient {
       const finalFeedback = taskSuccess ? null : feedback
 
       // Create task_success array compatible with v1 format
-      // If current task is successful, mark all previous tasks as successful
-      // If current task fails, only mark current task as failed
+      // Preserve existing completed tasks and only update current task status
       const totalTasks = request.scenarioContext?.tasks?.length || 1
       const currentTaskIndex = request.scenarioContext?.tasks?.findIndex(
         (task: any) => task.ko === request.currentTask?.ko
       ) || 0
       
+      // Get current progress from the request to preserve completed tasks
+      const currentProgress = request.progress || { completed: 0, total: totalTasks }
+      
+      // Initialize task_success array preserving already completed tasks
       const task_success = new Array(totalTasks).fill(false)
       
+      // Mark all previously completed tasks as successful
+      for (let i = 0; i < currentProgress.completed; i++) {
+        task_success[i] = true
+      }
+      
       if (taskSuccess) {
-        // Current task succeeded: mark all tasks up to current as successful
-        for (let i = 0; i <= currentTaskIndex; i++) {
-          task_success[i] = true
+        // Current task succeeded: mark current task as successful
+        if (currentTaskIndex >= 0 && currentTaskIndex < totalTasks) {
+          task_success[currentTaskIndex] = true
         }
       } else {
-        // Current task failed: only mark current task as failed
-        task_success[currentTaskIndex] = false
+        // Current task failed: only mark current task as failed (already false by default)
+        // No need to explicitly set to false as array is initialized with false
       }
 
       return {

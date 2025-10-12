@@ -137,10 +137,21 @@ export function LearningProvider({ children, initialScenario }: { children: Reac
     setCurrentTaskIndex(() => {
       const total = tasks.length
       const normalized = normalizeSuccesses(successes, total)
-      const idx = normalized.findIndex(v => v === false)
-      return idx === -1 ? Math.max(0, total - 1) : idx
+      
+      // Find the first incomplete task, but don't go backwards
+      // If all tasks are complete, stay at the last task
+      const firstIncompleteIndex = normalized.findIndex(v => v === false)
+      
+      if (firstIncompleteIndex === -1) {
+        // All tasks completed, stay at the last task
+        return Math.max(0, total - 1)
+      }
+      
+      // Only move forward, never backwards
+      // If the first incomplete task is before current position, stay at current
+      return Math.max(currentTaskIndex, firstIncompleteIndex)
     })
-  }, [tasks.length])
+  }, [tasks.length, currentTaskIndex])
 
   const gotoNextTask = React.useCallback(() => {
     setCurrentTaskIndex(() => {
