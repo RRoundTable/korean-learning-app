@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     const input = parsed.data
     const messages = buildEvaluationMessages(input)
-    const model = getModelConfig(ModelType.CHAT_ASSISTANT).model
+    const model = getModelConfig(ModelType.EVALUATION).model
 
     const requestBody: any = { 
       model, 
