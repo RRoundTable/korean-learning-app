@@ -85,6 +85,11 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   const [showInitialMicPrompt, setShowInitialMicPrompt] = useState(false)
   const [hasUserStartedRecording, setHasUserStartedRecording] = useState(false)
   
+  // 테스크 가이던스 관련 상태
+  const [showTaskGuidance, setShowTaskGuidance] = useState(false)
+  const [taskGuidanceText, setTaskGuidanceText] = useState("")
+  const [hasShownInitialGuidance, setHasShownInitialGuidance] = useState(false)
+  
   // Show evaluation popup directly when all tasks are completed
   useEffect(() => {
     if (progress.total > 0 && progress.completed === progress.total) {
@@ -211,6 +216,32 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     }
   }, [vadError])
 
+  // 테스크 변경 감지 - 가이던스 메시지 표시
+  useEffect(() => {
+    if (currentTask?.ko) {
+      setTaskGuidanceText(`Focus on the current task`)
+      setShowTaskGuidance(true)
+    }
+  }, [currentTaskIndex, currentTask])
+
+  // 초기 진입 시 가이던스 메시지 표시
+  useEffect(() => {
+    if (!hasShownInitialGuidance && currentTask?.ko) {
+      setTaskGuidanceText(`Focus on the current task`)
+      setShowTaskGuidance(true)
+      setHasShownInitialGuidance(true)
+    }
+  }, [currentTask, hasShownInitialGuidance])
+
+  // 피드백 후 가이던스 메시지 표시
+  useEffect(() => {
+    const hasFeedback = messages.some(msg => msg.isFeedback)
+    if (hasFeedback && currentTask?.ko) {
+      setTaskGuidanceText(`Focus on the current task`)
+      setShowTaskGuidance(true)
+    }
+  }, [messages, currentTask])
+
   // VAD 상태 변화 로깅 (제거 - 전송 시점에만 요약 출력)
 
   // Removed initialHint support: hints are fetched on demand
@@ -313,6 +344,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         setHasUserStartedRecording(true)
         setShowInitialMicPrompt(false)
       }
+      
+      // 녹음 시작 시 테스크 가이던스 숨김
+      setShowTaskGuidance(false)
       
       // 발화 시작 시 힌트 자동 숨김
       if (showHint) {
@@ -1050,7 +1084,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   // Local header components: TaskRail
 
   const TaskRail = useMemo(() => (
-    <div className="flex flex-col md:items-start gap-1 md:gap-2 md:pr-4">
+    <div className="flex flex-col md:items-start gap-1 md:gap-2 md:pr-4 relative">
       <div className="flex items-center gap-2 flex-wrap">
         <div className="text-sm md:text-lg font-semibold text-foreground line-clamp-2 break-words">
           {currentTask?.ko || ""}
@@ -1104,8 +1138,35 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           })}
         </div>
       )}
+      
+      {/* 테스크 가이던스 메시지 - 하단 위치 */}
+      <AnimatePresence>
+        {showTaskGuidance && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.9 }}
+            animate={{ 
+              opacity: 1, 
+              y: 0, 
+              scale: [1, 1.05, 1]
+            }}
+            exit={{ opacity: 0, y: 10, scale: 0.9 }}
+            transition={{ 
+              duration: 0.3,
+              scale: {
+                duration: 1,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }
+            }}
+            className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 px-3 py-2 rounded-lg shadow-lg border border-blue-200 dark:border-blue-700 text-sm font-medium mt-2"
+          >
+            {taskGuidanceText}
+            <div className="absolute -top-2 left-4 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-blue-50 dark:border-b-blue-900/20"></div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
-  ), [currentTask, progress, showAssistantTranslation, currentTaskIndex])
+  ), [currentTask, progress, showAssistantTranslation, currentTaskIndex, showTaskGuidance, taskGuidanceText])
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
