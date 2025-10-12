@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { getReasoningEffort, getTranslationModel } from "./_shared"
+import { getModelConfig, ModelType } from "@/lib/models/config"
 
 const TranslateInputSchema = z.object({
   text: z.string().min(1, "Text is required"),
@@ -24,7 +24,9 @@ export async function POST(request: NextRequest) {
 
     const { text, targetLanguage } = parsed.data
 
-    const model = getTranslationModel()
+    const modelConfig = getModelConfig(ModelType.TRANSLATE)
+    const model = modelConfig.model
+    const reasoningEffort = modelConfig.reasoningEffort
     const requestBody: any = {
       model,
       messages: [
@@ -40,9 +42,8 @@ export async function POST(request: NextRequest) {
       max_completion_tokens: 2000
     }
     
-    const reasoningEffort = getReasoningEffort(model)
     if (reasoningEffort) {
-      requestBody.reasoning_effort = reasoningEffort
+      requestBody.reasoning_effort = reasoningEffort  // Will be "minimal"
     }
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {

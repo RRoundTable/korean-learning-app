@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { V2InputSchema, TaskSuccessResponseSchema, getModel, isDebugEnabled, getReasoningEffort } from "../_shared"
+import { V2InputSchema, TaskSuccessResponseSchema, isDebugEnabled } from "../_shared"
 import { getModelConfig, ModelType } from "@/lib/models/config"
 import { buildTaskSuccessMessages } from "./prompts"
 
@@ -24,7 +24,9 @@ export async function POST(request: NextRequest) {
 
     const { currentTask, user_msg, memoryHistory, scenarioContext } = parsed.data
     const messages = buildTaskSuccessMessages(currentTask, user_msg, memoryHistory, scenarioContext)
-    const model = getModelConfig(ModelType.CHAT_TASK_SUCCESS).model
+    const modelConfig = getModelConfig(ModelType.CHAT_TASK_SUCCESS)
+    const model = modelConfig.model
+    const reasoningEffort = modelConfig.reasoningEffort
 
     const requestBody: any = { 
       model, 
@@ -32,9 +34,8 @@ export async function POST(request: NextRequest) {
       response_format: { type: "json_object" }
     }
     
-    const reasoningEffort = getReasoningEffort(model)
     if (reasoningEffort) {
-      requestBody.reasoning_effort = reasoningEffort
+      requestBody.reasoning_effort = reasoningEffort  // Will be "minimal"
     }
 
     if (isDebugEnabled()) {

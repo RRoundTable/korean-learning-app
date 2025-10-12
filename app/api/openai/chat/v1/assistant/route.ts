@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { ChatInputSchema, getModel, isDebugEnabled, getReasoningEffort } from "../_shared"
+import { ChatInputSchema, isDebugEnabled } from "../_shared"
+import { getModelConfig, ModelType } from "@/lib/models/config"
 import { buildAssistantMessages } from "../prompts/assistant"
 import { AssistantResponseSchema } from "../prompts/types"
 
@@ -38,7 +39,9 @@ export async function POST(request: NextRequest) {
       history: input.memoryHistory,
       userMessage: input.userMessage,
     })
-    const model = getModel()
+    const modelConfig = getModelConfig(ModelType.CHAT_ASSISTANT)
+    const model = modelConfig.model
+    const reasoningEffort = modelConfig.reasoningEffort
 
     const finalMessages = messages
     const requestBody: any = { 
@@ -47,9 +50,8 @@ export async function POST(request: NextRequest) {
       response_format: { type: "json_object" }
     }
     
-    const reasoningEffort = getReasoningEffort(model)
     if (reasoningEffort) {
-      requestBody.reasoning_effort = reasoningEffort
+      requestBody.reasoning_effort = reasoningEffort  // Will be "minimal"
     }
 
     if (isDebugEnabled()) {

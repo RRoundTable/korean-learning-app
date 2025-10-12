@@ -8,12 +8,10 @@ export enum ModelType {
   CHAT_HINT = 'CHAT_HINT', 
   CHAT_FEEDBACK = 'CHAT_FEEDBACK',
   CHAT_TASK_SUCCESS = 'CHAT_TASK_SUCCESS',
-  EVALUATION = 'EVALUATION',
-  TRANSLATE = 'TRANSLATE',
+  EVALUATION = 'EVALUATION',           // HIGH reasoning effort
+  TRANSLATE = 'TRANSLATE',             // MINIMAL reasoning effort
   TTS = 'TTS',
-  STT = 'STT',
-  REASONING = 'REASONING',
-  DEBUG = 'DEBUG'
+  STT = 'STT'
 }
 
 export interface ModelConfig {
@@ -33,9 +31,7 @@ const DEFAULT_MODELS: Record<ModelType, string> = {
   [ModelType.EVALUATION]: 'gpt-5-mini',
   [ModelType.TRANSLATE]: 'gpt-4.1-nano',
   [ModelType.TTS]: 'tts-1',
-  [ModelType.STT]: 'whisper-1',
-  [ModelType.REASONING]: 'gpt-5',
-  [ModelType.DEBUG]: 'gpt-4.1-mini'
+  [ModelType.STT]: 'whisper-1'
 }
 
 // Environment variable mapping
@@ -47,9 +43,31 @@ const ENV_VAR_MAPPING: Record<ModelType, string> = {
   [ModelType.EVALUATION]: 'OPENAI_EVALUATION_MODEL',
   [ModelType.TRANSLATE]: 'OPENAI_TRANSLATE_MODEL',
   [ModelType.TTS]: 'OPENAI_TTS_MODEL',
-  [ModelType.STT]: 'OPENAI_STT_MODEL',
-  [ModelType.REASONING]: 'OPENAI_REASONING_MODEL',
-  [ModelType.DEBUG]: 'OPENAI_DEBUG_MODEL'
+  [ModelType.STT]: 'OPENAI_STT_MODEL'
+}
+
+// Reasoning effort mapping
+const REASONING_EFFORT_MAPPING: Record<ModelType, string | undefined> = {
+  [ModelType.CHAT_ASSISTANT]: undefined,
+  [ModelType.CHAT_HINT]: undefined,
+  [ModelType.CHAT_FEEDBACK]: undefined,
+  [ModelType.CHAT_TASK_SUCCESS]: undefined,
+  [ModelType.EVALUATION]: 'low',        // HIGH for evaluation
+  [ModelType.TRANSLATE]: undefined,
+  [ModelType.TTS]: undefined,             // Not applicable
+  [ModelType.STT]: undefined              // Not applicable
+}
+
+// Environment variable mapping for reasoning effort
+const REASONING_EFFORT_ENV_MAPPING: Record<ModelType, string> = {
+  [ModelType.CHAT_ASSISTANT]: 'OPENAI_CHAT_REASONING_EFFORT',
+  [ModelType.CHAT_HINT]: 'OPENAI_CHAT_REASONING_EFFORT',
+  [ModelType.CHAT_FEEDBACK]: 'OPENAI_CHAT_REASONING_EFFORT',
+  [ModelType.CHAT_TASK_SUCCESS]: 'OPENAI_CHAT_REASONING_EFFORT',
+  [ModelType.EVALUATION]: 'OPENAI_EVALUATION_REASONING_EFFORT',
+  [ModelType.TRANSLATE]: 'OPENAI_TRANSLATE_REASONING_EFFORT',
+  [ModelType.TTS]: '',                    // Not applicable
+  [ModelType.STT]: ''                     // Not applicable
 }
 
 /**
@@ -66,10 +84,10 @@ export function getModelConfig(type: ModelType): ModelConfig {
   // Check for fallback to legacy OPENAI_CHAT_MODEL for chat endpoints
   if (!envModel && isChatModel(type) && process.env.OPENAI_CHAT_MODEL) {
     const model = process.env.OPENAI_CHAT_MODEL
-    return createModelConfig(model)
+    return createModelConfig(model, type)
   }
   
-  return createModelConfig(model)
+  return createModelConfig(model, type)
 }
 
 /**
@@ -88,9 +106,23 @@ export function isReasoningModel(model?: string): boolean {
 }
 
 /**
- * Get reasoning effort for a model
+ * Get reasoning effort for a model type
  */
-export function getReasoningEffort(model?: string): string | undefined {
+export function getReasoningEffort(modelType: ModelType): string | undefined {
+  // Check for environment variable override first
+  const envVar = REASONING_EFFORT_ENV_MAPPING[modelType]
+  if (envVar && process.env[envVar]) {
+    return process.env[envVar]
+  }
+  
+  // Fall back to default mapping
+  return REASONING_EFFORT_MAPPING[modelType]
+}
+
+/**
+ * Get reasoning effort for a model (backward compatibility)
+ */
+export function getReasoningEffortForModel(model?: string): string | undefined {
   return isReasoningModel(model) ? 'minimal' : undefined
 }
 
@@ -104,10 +136,10 @@ export function isDebugEnabled(): boolean {
 /**
  * Create model configuration object
  */
-function createModelConfig(model: string): ModelConfig {
+function createModelConfig(model: string, type: ModelType): ModelConfig {
   return {
     model,
-    reasoningEffort: getReasoningEffort(model),
+    reasoningEffort: getReasoningEffort(type),
     isReasoningModel: isReasoningModel(model),
     maxTokens: getMaxTokensForModel(model),
     temperature: getTemperatureForModel(model)

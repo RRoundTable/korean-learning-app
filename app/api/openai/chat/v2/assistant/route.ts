@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { V2InputSchema, getModel, isDebugEnabled, getReasoningEffort } from "../_shared"
+import { V2InputSchema, isDebugEnabled } from "../_shared"
+import { getModelConfig, ModelType } from "@/lib/models/config"
 import { buildAssistantMessages } from "./prompts"
 
 export const runtime = "nodejs"
@@ -23,16 +24,17 @@ export async function POST(request: NextRequest) {
 
     const { currentTask, user_msg, memoryHistory, scenarioContext } = parsed.data
     const messages = buildAssistantMessages(currentTask, user_msg, memoryHistory, scenarioContext)
-    const model = getModel()
+    const modelConfig = getModelConfig(ModelType.CHAT_ASSISTANT)
+    const model = modelConfig.model
+    const reasoningEffort = modelConfig.reasoningEffort
 
     const requestBody: any = { 
       model, 
       messages
     }
     
-    const reasoningEffort = getReasoningEffort(model)
     if (reasoningEffort) {
-      requestBody.reasoning_effort = reasoningEffort
+      requestBody.reasoning_effort = reasoningEffort  // Will be "minimal"
     }
 
     if (isDebugEnabled()) {

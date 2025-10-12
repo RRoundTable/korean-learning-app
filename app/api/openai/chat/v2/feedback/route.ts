@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { V2InputSchema, FeedbackResponseSchema, getModel, isDebugEnabled, getReasoningEffort } from "../_shared"
+import { V2InputSchema, FeedbackResponseSchema, isDebugEnabled } from "../_shared"
 import { getModelConfig, ModelType } from "@/lib/models/config"
 import { buildFeedbackMessages } from "./prompts"
 
@@ -24,19 +24,19 @@ export async function POST(request: NextRequest) {
 
     const { currentTask, user_msg, memoryHistory, scenarioContext } = parsed.data
     const messages = buildFeedbackMessages(currentTask, user_msg, memoryHistory, scenarioContext)
-    const model = getModelConfig(ModelType.CHAT_FEEDBACK).model
+    const modelConfig = getModelConfig(ModelType.CHAT_FEEDBACK)
+    const model = modelConfig.model
+    const reasoningEffort = modelConfig.reasoningEffort
 
     const requestBody: any = { 
       model, 
       messages,
       response_format: { type: "json_object" },
-      temperature: 0.3, // Lower temperature for more consistent feedback
-      max_tokens: 200, // Limit feedback length
+      max_completion_tokens: 200, // Limit feedback length
     }
     
-    const reasoningEffort = getReasoningEffort(model)
     if (reasoningEffort) {
-      requestBody.reasoning_effort = reasoningEffort
+      requestBody.reasoning_effort = reasoningEffort  // Will be "minimal"
     }
 
     if (isDebugEnabled()) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { ChatInputSchema, isDebugEnabled, getModel, getReasoningEffort } from "../_shared"
+import { ChatInputSchema, isDebugEnabled } from "../_shared"
+import { getModelConfig, ModelType } from "@/lib/models/config"
 import { buildHintMessages } from "../prompts/hint"
 
 export const runtime = "nodejs"
@@ -49,12 +50,13 @@ export async function POST(request: NextRequest) {
       userMessage: input.userMessage,
     })
 
-    const model = getModel()
+    const modelConfig = getModelConfig(ModelType.CHAT_HINT)
+    const model = modelConfig.model
+    const reasoningEffort = modelConfig.reasoningEffort
     const requestBody: any = { model, messages }
     
-    const reasoningEffort = getReasoningEffort(model)
     if (reasoningEffort) {
-      requestBody.reasoning_effort = reasoningEffort
+      requestBody.reasoning_effort = reasoningEffort  // Will be "minimal"
     }
     if (isDebugEnabled()) {
       console.log("[DEBUG] hint request:", requestBody)

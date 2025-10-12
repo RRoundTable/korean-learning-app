@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
-import { EvaluationInputSchema, EvaluationResponseSchema, getModel, isDebugEnabled, getReasoningEffort } from "../_shared"
+import { EvaluationInputSchema, EvaluationResponseSchema, isDebugEnabled } from "../_shared"
 import { getModelConfig, ModelType } from "@/lib/models/config"
+import { logReasoningEffortUsage, logAPIRequest, logAPIResponse } from "@/lib/monitoring/reasoning-effort"
 import { buildEvaluationMessages } from "./prompts"
 
 export const runtime = "nodejs"
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
   try {
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json({ error: "Missing OPENAI_API_KEY" }, { status: 500 })
@@ -24,20 +26,27 @@ export async function POST(request: NextRequest) {
 
     const input = parsed.data
     const messages = buildEvaluationMessages(input)
-    const model = getModelConfig(ModelType.EVALUATION).model
+    const modelConfig = getModelConfig(ModelType.EVALUATION)
+    const model = modelConfig.model
+    const reasoningEffort = modelConfig.reasoningEffort
 
     const requestBody: any = { 
       model, 
       messages,
       response_format: { type: "json_object" },
-      temperature: 0.1,
-      max_tokens: 1000,
+      max_completion_tokens: 1000,
     }
     
-    const reasoningEffort = getReasoningEffort(model)
     if (reasoningEffort) {
-      requestBody.reasoning_effort = reasoningEffort
+      requestBody.reasoning_effort = reasoningEffort  // Will be "high"
     }
+
+    // Log reasoning effort usage
+    logReasoningEffortUsage('/api/openai/chat/v2/evaluation', reasoningEffort, model)
+    logAPIRequest('/api/openai/chat/v2/evaluation', model, reasoningEffort, { 
+      scenarioInfo: input.scenarioInfo?.title,
+      chatHistoryLength: input.chatHistory?.length 
+    })
 
     if (isDebugEnabled()) {
       console.log("[DEBUG] evaluation v2 request:", requestBody)
@@ -87,6 +96,14 @@ export async function POST(request: NextRequest) {
     if (isDebugEnabled()) {
       console.log("[DEBUG] evaluation v2 validated response:", validated.data)
     }
+
+    // Log API response with performance metrics
+    const responseTime = Date.now() - startTime
+    logAPIResponse('/api/openai/chat/v2/evaluation', 200, responseTime, {
+      promptTokens: data.usage?.prompt_tokens || 0,
+      completionTokens: data.usage?.completion_tokens || 0,
+      totalTokens: data.usage?.total_tokens || 0
+    })
 
     return NextResponse.json(validated.data)
   } catch (error) {
