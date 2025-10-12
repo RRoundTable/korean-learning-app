@@ -1087,7 +1087,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     <div className="flex flex-col md:items-start gap-1 md:gap-2 md:pr-4 relative">
       <div className="flex items-center gap-2 flex-wrap">
         <div className="text-sm md:text-lg font-semibold text-foreground line-clamp-2 break-words">
-          {currentTask?.ko || ""}
+          {currentTask?.en || ""}
         </div>
         <span className="text-[11px] md:text-xs text-muted-foreground">
           ({progress.completed}/{progress.total})
@@ -1103,9 +1103,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           <Languages className="w-4 h-4" />
         </Button>
       </div>
-      {showAssistantTranslation && currentTask?.en && (
+      {showAssistantTranslation && currentTask?.ko && (
         <div className="text-xs md:text-sm text-muted-foreground line-clamp-2 break-words">
-          {currentTask.en}
+          {currentTask.ko}
         </div>
       )}
       {progress.total > 0 && (
