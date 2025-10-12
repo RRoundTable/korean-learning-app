@@ -31,7 +31,7 @@ const DEFAULT_MODELS: Record<ModelType, string> = {
   [ModelType.EVALUATION]: 'gpt-5-mini',
   [ModelType.TRANSLATE]: 'gpt-4.1-nano',
   [ModelType.TTS]: 'tts-1',
-  [ModelType.STT]: 'whisper-1'
+  [ModelType.STT]: 'gpt-4o-mini-transcribe'
 }
 
 // Environment variable mapping
@@ -201,7 +201,7 @@ export function validateModelConfigs(): { valid: boolean; errors: string[] } {
  */
 function isValidModelName(model: string): boolean {
   const validModels = [
-    'gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-5', 'gpt-4o', 'gpt-4o-mini',
+    'gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-5', 'gpt-4o', 'gpt-4o-mini', 'gpt-4o-mini-transcribe',
     'tts-1', 'tts-1-hd', 'whisper-1'
   ]
   

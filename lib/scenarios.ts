@@ -22,6 +22,7 @@ export interface Scenario {
   tasks?: Task[]
   ttsVoice?: string
   ttsInstructions?: string
+  sttPrompt?: string
 }
 
 export const scenarios: Scenario[] = [
@@ -53,6 +54,7 @@ export const scenarios: Scenario[] = [
     ],
     ttsVoice: "nova",
     ttsInstructions: "Speak in a warm, friendly tone as if meeting a new friend. Be enthusiastic and welcoming. Sound like you're genuinely excited to meet someone new.",
+    sttPrompt: "This is a casual conversation between friends at a party. The user is meeting Robin for the first time. Common phrases include greetings, introductions, asking about hobbies, making plans for coffee, and casual small talk. Focus on Korean conversational patterns and party social interactions.",
   },
   {
     id: 2,
@@ -93,6 +95,7 @@ export const scenarios: Scenario[] = [
     ],
     ttsVoice: "nova",
     ttsInstructions: "Speak in a friendly, helpful service tone. Be enthusiastic and welcoming. Sound like a friendly fast-food employee who wants to help.",
+    sttPrompt: "This is a fast-food restaurant ordering scenario. The user is ordering a burger set within budget. Key vocabulary includes: burger types (소고기 버거, 치킨 버거, 새우버거), side menu items (감자튀김, 치즈스틱, 콜라, 제로콜라), prices (8000원, 9000원, 15000원, 16000원), and ordering phrases. Focus on Korean food service terminology and ordering expressions.",
   },
   {
     id: 3,
@@ -118,5 +121,6 @@ export const scenarios: Scenario[] = [
     ],
     ttsVoice: "coral",
     ttsInstructions: "Speak in an energetic, helpful retail assistant tone. Be enthusiastic about products and helpful to customers. Sound like a knowledgeable shoe salesperson.",
+    sttPrompt: "This is a Nike store shopping scenario. The user is looking for running shoes. Key vocabulary includes: shoe types (러닝화, 운동화), sizes (사이즈), colors, payment methods (카드결제), discounts (할인), and shopping expressions. Focus on Korean retail and shoe shopping terminology.",
   }
 ]

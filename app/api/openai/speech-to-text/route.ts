@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
+import { getModelConfig, ModelType } from "@/lib/models/config"
 
 export const runtime = "nodejs"
 
@@ -51,11 +52,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Get model configuration
+    const modelConfig = getModelConfig(ModelType.STT)
+    
     // Build multipart form-data for OpenAI Audio Transcriptions API
     const fd = new FormData()
     fd.append("file", file, file.name || "audio.webm")
-    // Use Whisper-1 model
-    fd.append("model", "whisper-1")
+    // Use configured STT model
+    fd.append("model", modelConfig.model)
     fd.append("response_format", "json")
     if (input.data.language) fd.append("language", input.data.language)
     if (input.data.prompt) fd.append("prompt", input.data.prompt)
