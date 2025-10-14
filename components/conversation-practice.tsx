@@ -543,8 +543,11 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     // Format user message with current task FIRST
     const taskKo = currentTask?.ko ?? (scenario?.tasks?.[currentTaskIndex]?.ko as string | undefined)
     
+    const nextTaskKoOrNull = (typeof progress?.total === 'number' && (currentTaskIndex + 1) < progress.total)
+      ? (scenario?.tasks?.[currentTaskIndex + 1]?.ko ?? null)
+      : null
     const formattedUserMessage = taskKo 
-      ? `current task: ${taskKo}, user_message: ${userText}`
+      ? `current task: ${taskKo}, next task: ${nextTaskKoOrNull}, user_message: ${userText}`
       : userText
     
     
@@ -756,8 +759,11 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       // Format user message with current task FIRST
       const taskKo = currentTask?.ko ?? (scenario?.tasks?.[currentTaskIndex]?.ko as string | undefined)
       
+      const nextTaskKoOrNull = (typeof progress?.total === 'number' && (currentTaskIndex + 1) < progress.total)
+        ? (scenario?.tasks?.[currentTaskIndex + 1]?.ko ?? null)
+        : null
       const formattedUserMessage = taskKo 
-        ? `current task: ${taskKo}, user_message: ${userText}`
+        ? `current task: ${taskKo}, next task: ${nextTaskKoOrNull}, user_message: ${userText}`
         : userText
       
 
@@ -925,8 +931,11 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         }))
       const lastUserText = messages.findLast?.((m) => m.role === 'user' && !m.isWaiting && !!m.text)?.text || typedMessage || ''
       const taskKo = currentTask?.ko ?? (scenario?.tasks?.[currentTaskIndex]?.ko as string | undefined)
+      const nextTaskKoOrNull = (typeof progress?.total === 'number' && (currentTaskIndex + 1) < progress.total)
+        ? (scenario?.tasks?.[currentTaskIndex + 1]?.ko ?? null)
+        : null
       const formattedHintUserMessage = taskKo 
-        ? `current task: ${taskKo}, user_message: ${lastUserText}`
+        ? `current task: ${taskKo}, next task: ${nextTaskKoOrNull}, user_message: ${lastUserText}`
         : lastUserText
 
       const payload = {

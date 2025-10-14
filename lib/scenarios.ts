@@ -48,7 +48,7 @@ export const scenarios: Scenario[] = [
     emoji: "🏨",
     isFree: false,
     initialMessage: {
-      text: "안녕하세요! 호스트 지민입니다. 오늘 도착 예정 시간이 어떻게 되세요?",
+      text: "안녕하세요! 호스트 지민입니다.",
       translation: "Hi! I’m Ji-min, your host. What time are you arriving today?"
     },
   
