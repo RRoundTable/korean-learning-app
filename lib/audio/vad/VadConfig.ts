@@ -7,15 +7,17 @@ export type VadConfig = {
   prefixPaddingMs: number
   maxUtteranceMs: number
   minUtteranceMs: number
+  probabilitySmootherSize: number
 }
 
 export const defaultVadConfig: VadConfig = {
   sampleRateTarget: 16000,
-  frameMs: 30,
+  frameMs: 20,
   speechProbabilityThreshold: 0.1,
-  startSpeechAfterMs: 50,
-  endSilenceAfterMs: 500,
-  prefixPaddingMs: 300,
+  startSpeechAfterMs: 20,
+  endSilenceAfterMs: 700,
+  prefixPaddingMs: 1000,
   maxUtteranceMs: 12000,
   minUtteranceMs: 50,
+  probabilitySmootherSize: 3,
 }

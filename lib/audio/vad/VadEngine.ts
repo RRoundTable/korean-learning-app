@@ -64,6 +64,10 @@ export class VadEngine {
     this.events = events ?? {}
     this.frameMs = this.config.frameMs
     this.frameSamples = Math.round((this.config.sampleRateTarget * this.frameMs) / 1000)
+    // allow config override for smoothing window
+    if (typeof this.config.probabilitySmootherSize === "number" && this.config.probabilitySmootherSize > 0) {
+      this.probabilitySmootherSize = this.config.probabilitySmootherSize
+    }
   }
 
   getState() {
