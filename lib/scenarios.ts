@@ -27,34 +27,42 @@ export interface Scenario {
 
 export const scenarios: Scenario[] = [
   {
-    id: 1,
-    title: "로빈과 약속잡기",
-    titleEn: "Making New Friends",
-    role: "로빈",
-    userRole: "친구 파티에서 만난 사람",
+    id: 4,
+    title: "홍대 에어비앤비 체크인",
+    titleEn: "Airbnb Check-in in Hongdae",
+    role: "숙소 호스트",
+    userRole: "서울에 도착한 여행객",
     description:
-      "로빈과 친구 파티에서 만났다. 로빈의 취미는 카페를 가는 것을 좋아한다. 로빈과 약속을 잡아보자.",
-    descriptionEn: "Have a casual conversation with your new friend",
-    emoji: "🍷",
-    isFree: true,
+      "홍대입구역(2호선) 근처 원룸 숙소입니다. \
+      · 체크인: 15:00 / 체크아웃: 11:00 \
+      · 얼리 체크인: 당일 객실 상황에 따라 가능 (유료) \
+      · 짐 보관: 1층 무인 보관함 이용 가능 \
+      · 입장 방법: 건물 공용 현관 → 해당 층 → 도어락 → 객실 \
+      · 와이파이: SSID / PW 제공 \
+      · 가장 가까운 출구: 홍대입구역 근처 (도보 이동) \
+      · 주변 추천: 연남동 브런치, 홍대 거리 공연, 망원시장 길거리 음식 \
+      · 조용 시간: 야간 적용, 파티/흡연 금지 \
+      여행자는 호스트에게 도착 시간을 알리고, 얼리 체크인 또는 짐 보관을 협의한 뒤, 입장/와이파이/길찾기 정보를 확인해 체크인을 완료합니다.",
+    descriptionEn:
+      "A studio near Hongdae Station (Line 2). Check-in at 15:00, check-out at 11:00. Early check-in may be available (paid). Lobby lockers available. Ask the host for entry steps, Wi-Fi, and directions to complete your check-in.",
+    emoji: "🏨",
+    isFree: false,
     initialMessage: {
-      text: "안녕하세요! 저는 로빈이에요.",
-      translation: "Hi, I'm Robin! Are you Amy's friend?",
+      text: "안녕하세요! 호스트 지민입니다. 오늘 도착 예정 시간이 어떻게 되세요?",
+      translation: "Hi! I’m Ji-min, your host. What time are you arriving today?"
     },
-    
+  
     tasks: [
-      { ko: "로빈에게 인사와 함께 자기소개를 하세요.", en: "Introduce yourself and greet Robin" },
-      { ko: "로빈의 취미에 대해서 물어보세요.", en: "Ask about Robin's hobbies" },
-      { ko: "좋아하는 음료 종류를 물어보세요.", en: "Ask about the favorite drink" },
-      { ko: "로빈과 자유로운 대화를 나눠보세요.", en: "Have a free conversation with Robin" },
-      {
-        ko: "로빈과 다음 주말에 커피 마시러 가자고 해보세요.",
-        en: "Ask Robin out for coffee next weekend",
-      },
+      { ko: "호스트에게 인사하세요.", en: "Greet the host." },
+      { ko: "예약자 이름을 말하세요.", en: "State your reservation name." },
+      { ko: "도착 예정 시간을 알리세요.", en: "Share your estimated arrival time." },
+      { ko: "건물 출입 방법과 도어락에 대해 물어보세요.", en: "Ask about the building entry and door lock." },
+      { ko: "지하철역에서 숙소까지의 길 안내를 요청하세요.", en: "Request directions from the station to the property." }
     ],
+  
     ttsVoice: "nova",
-    ttsInstructions: "Speak in a warm, friendly tone as if meeting a new friend. Be enthusiastic and welcoming. Sound like you're genuinely excited to meet someone new.",
-    sttPrompt: "This is a casual conversation between friends at a party. The user is meeting Robin for the first time. Common phrases include greetings, introductions, asking about hobbies, making plans for coffee, and casual small talk. Focus on Korean conversational patterns and party social interactions.",
+    ttsInstructions: "따뜻하고 신뢰감 있는 톤. 현지 정보를 잘 아는 호스트처럼 차분히 안내하세요.",
+    sttPrompt: "에어비앤비 체크인 상황. 핵심 어휘: 체크인/체크아웃, 도착 시간, 입장/도어락, 길 안내, 와이파이, 짐 보관, 조용 시간, 주변 추천. 자연스러운 질문/확인 패턴을 강조."
   },
   {
     id: 2,
@@ -96,31 +104,5 @@ export const scenarios: Scenario[] = [
     ttsVoice: "nova",
     ttsInstructions: "Speak in a friendly, helpful service tone. Be enthusiastic and welcoming. Sound like a friendly fast-food employee who wants to help.",
     sttPrompt: "This is a fast-food restaurant ordering scenario. The user is ordering a burger set within budget. Key vocabulary includes: burger types (소고기 버거, 치킨 버거, 새우버거), side menu items (감자튀김, 치즈스틱, 콜라, 제로콜라), prices (8000원, 9000원, 15000원, 16000원), and ordering phrases. Focus on Korean food service terminology and ordering expressions.",
-  },
-  {
-    id: 3,
-    title: "나이키 매장에서",
-    titleEn: "At Nike Store",
-    role: "매장 직원",
-    userRole: "러닝화를 사러 온 손님",
-    description: "운동화를 사러 나이키 매장에 갔습니다.",
-    descriptionEn: "Shopping for sneakers at Nike store",
-    emoji: "👟",
-    isFree: false,
-    initialMessage: {
-      text: "안녕하세요! 찾으시는 신발이 있으신가요?",
-      translation: "Hello! Welcome to Nike store. What kind of sneakers are you looking for?",
-    },
-    
-    tasks: [
-      { ko: "점원에게 찾고 있는 신발 종류를 말해보세요.", en: "Describe the style of sneakers you want" },
-      { ko: "점원에게 찾는 신발사이즈를 말해보세요.", en: "Tell the staff your shoe size" },
-      { ko: "신발 사이즈가 크네요. 점원에게 더 큰 신발 사이즈를 요청해보세요.", en: "Ask for a larger shoe size" },
-      { ko: "할인 행사를 하고 있는지 물어보세요.", en: "Ask if there are any discount sales" },
-      { ko: "카드결제를 하고 싶다고 말해보세요.", en: "Say you want to pay by card" },
-    ],
-    ttsVoice: "coral",
-    ttsInstructions: "Speak in an energetic, helpful retail assistant tone. Be enthusiastic about products and helpful to customers. Sound like a knowledgeable shoe salesperson.",
-    sttPrompt: "This is a Nike store shopping scenario. The user is looking for running shoes. Key vocabulary includes: shoe types (러닝화, 운동화), sizes (사이즈), colors, payment methods (카드결제), discounts (할인), and shopping expressions. Focus on Korean retail and shoe shopping terminology.",
   }
 ]
