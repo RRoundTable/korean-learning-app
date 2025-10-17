@@ -85,10 +85,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   const [showInitialMicPrompt, setShowInitialMicPrompt] = useState(false)
   const [hasUserStartedRecording, setHasUserStartedRecording] = useState(false)
   
-  // 테스크 가이던스 관련 상태
-  const [showTaskGuidance, setShowTaskGuidance] = useState(false)
-  const [taskGuidanceText, setTaskGuidanceText] = useState("")
-  const [hasShownInitialGuidance, setHasShownInitialGuidance] = useState(false)
+  // 중앙 오버레이 상태
+  const [showTaskOverlay, setShowTaskOverlay] = useState(false)
+  const [taskOverlayTimerId, setTaskOverlayTimerId] = useState<number | null>(null)
   
   // Show evaluation popup directly when all tasks are completed
   useEffect(() => {
@@ -216,35 +215,24 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     }
   }, [vadError])
 
-  // 테스크 변경 감지 - 가이던스 메시지 표시
-  useEffect(() => {
-    if (currentTask?.ko) {
-      setTaskGuidanceText(`Focus on the current task`)
-      setShowTaskGuidance(true)
+  // Task guidance removed; replaced by centered overlay logic
+  const clearTaskOverlayTimer = useCallback(() => {
+    if (taskOverlayTimerId) {
+      clearTimeout(taskOverlayTimerId)
+      setTaskOverlayTimerId(null)
     }
-  }, [currentTaskIndex, currentTask])
+  }, [taskOverlayTimerId])
 
-  // 초기 진입 시 가이던스 메시지 표시
-  useEffect(() => {
-    if (!hasShownInitialGuidance && currentTask?.ko) {
-      setTaskGuidanceText(`Focus on the current task`)
-      setShowTaskGuidance(true)
-      setHasShownInitialGuidance(true)
-    }
-  }, [currentTask, hasShownInitialGuidance])
-
-  // 피드백 후 가이던스 메시지 표시
-  useEffect(() => {
-    const hasFeedback = messages.some(msg => msg.isFeedback)
-    if (hasFeedback && currentTask?.ko) {
-      setTaskGuidanceText(`Focus on the current task`)
-      setShowTaskGuidance(true)
-    }
-  }, [messages, currentTask])
-
-  // VAD 상태 변화 로깅 (제거 - 전송 시점에만 요약 출력)
-
-  // Removed initialHint support: hints are fetched on demand
+  const showOverlayWithAutoDismiss = useCallback(() => {
+    if (!currentTask?.en && !currentTask?.ko) return
+    setShowTaskOverlay(true)
+    clearTaskOverlayTimer()
+    const id = window.setTimeout(() => {
+      setShowTaskOverlay(false)
+      setTaskOverlayTimerId(null)
+    }, 3000)
+    setTaskOverlayTimerId(id)
+  }, [currentTask, clearTaskOverlayTimer])
 
   // Play initial assistant message TTS on mount / when initial message changes
   useEffect(() => {
@@ -288,6 +276,10 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
             if (!hasUserStartedRecording) {
               setShowInitialMicPrompt(true)
             }
+            // 초기 TTS 종료 시 오버레이 노출 (음성 모드)
+            if (!textOnlyMode) {
+              showOverlayWithAutoDismiss()
+            }
             resolve()
           }
           audio.onerror = () => resolve()
@@ -303,7 +295,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     return () => {
       isActive = false
     }
-  }, [initialMessage?.text, sessionId, setAgentSpeaking, apiClient, scenario])
+  }, [initialMessage?.text, sessionId, setAgentSpeaking, apiClient, scenario, textOnlyMode, showOverlayWithAutoDismiss])
 
   // Recording functionality
   useEffect(() => {
@@ -325,6 +317,10 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       }
       // Clear audio cache on unmount
       apiClient.clearAudioCache()
+      // Clear overlay timer on unmount
+      if (taskOverlayTimerId) {
+        clearTimeout(taskOverlayTimerId)
+      }
     }
   }, [])
 
@@ -345,8 +341,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         setShowInitialMicPrompt(false)
       }
       
-      // 녹음 시작 시 테스크 가이던스 숨김
-      setShowTaskGuidance(false)
+      // 녹음 시작 시 중앙 오버레이 숨김
+      setShowTaskOverlay(false)
+      clearTaskOverlayTimer()
       
       // 발화 시작 시 힌트 자동 숨김
       if (showHint) {
@@ -643,33 +640,42 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         // Assistant 응답 시 힌트 자동 숨김
         setShowHint(false)
 
-        // Stream TTS for the entire text as a single audio stream
-        try {
-          const audioUrl = await apiClient.getOrCreateTtsObjectUrl(unifiedResponse.msg, {
-            sessionId,
-            voice: scenario.ttsVoice || "nova",
-            format: "mp3",
-            instructions: scenario.ttsInstructions,
-          })
-          const audio = new Audio(audioUrl)
-          audioRef.current = audio
-          await new Promise<void>((resolve) => {
-            audio.onended = () => {
-              setAgentSpeaking(false)
-              resolve()
-            }
-            audio.onerror = () => {
-              setAgentSpeaking(false)
-              resolve()
-            }
-            audio.play().catch(() => {
-              setAgentSpeaking(false)
-              resolve()
-            })
-          })
-        } catch (e) {
-          console.error("TTS error:", e)
+        // Text-only: 바로 오버레이, 음성 모드: TTS 종료 후 오버레이
+        if (textOnlyMode) {
           setAgentSpeaking(false)
+          showOverlayWithAutoDismiss()
+        } else {
+          try {
+            const audioUrl = await apiClient.getOrCreateTtsObjectUrl(unifiedResponse.msg, {
+              sessionId,
+              voice: scenario.ttsVoice || "nova",
+              format: "mp3",
+              instructions: scenario.ttsInstructions,
+            })
+            const audio = new Audio(audioUrl)
+            audioRef.current = audio
+            await new Promise<void>((resolve) => {
+              audio.onended = () => {
+                setAgentSpeaking(false)
+                showOverlayWithAutoDismiss()
+                resolve()
+              }
+              audio.onerror = () => {
+                setAgentSpeaking(false)
+                showOverlayWithAutoDismiss()
+                resolve()
+              }
+              audio.play().catch(() => {
+                setAgentSpeaking(false)
+                showOverlayWithAutoDismiss()
+                resolve()
+              })
+            })
+          } catch (e) {
+            console.error("TTS error:", e)
+            setAgentSpeaking(false)
+            showOverlayWithAutoDismiss()
+          }
         }
       }
 
@@ -852,6 +858,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
             translateEn: undefined
           }]))
           setShowHint(false)
+          if (textOnlyMode) {
+            showOverlayWithAutoDismiss()
+          }
         }
 
         // Show feedback message if available (regardless of show_msg value)
@@ -1148,41 +1157,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         </div>
       )}
       
-      {/* 테스크 가이던스 메시지 - 하단 위치 */}
-      <AnimatePresence mode="wait">
-        {showTaskGuidance && (
-          <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.9, height: 0 }}
-            animate={{ 
-              opacity: 1, 
-              y: 0, 
-              scale: [1, 1.05, 1],
-              height: "auto"
-            }}
-            exit={{ 
-              opacity: 0, 
-              y: 10, 
-              scale: 0.9,
-              height: 0
-            }}
-            transition={{ 
-              duration: 0.3,
-              height: { duration: 0.3 },
-              scale: {
-                duration: 1,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }
-            }}
-            className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 px-3 py-2 rounded-lg shadow-lg border border-blue-200 dark:border-blue-700 text-sm font-medium mt-2 overflow-hidden"
-          >
-            {taskGuidanceText}
-            <div className="absolute -top-2 left-4 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-blue-50 dark:border-b-blue-900/20"></div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Guidance banner removed in favor of centered overlay */}
     </div>
-  ), [currentTask, progress, showAssistantTranslation, currentTaskIndex, showTaskGuidance, taskGuidanceText])
+  ), [currentTask, progress, showAssistantTranslation, currentTaskIndex, showTaskOverlay])
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -1651,6 +1628,34 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           )}
         </div>
       </div>
+
+      {/* Centered Task Overlay */}
+      <AnimatePresence>
+        {showTaskOverlay && (
+          <motion.div
+            initial={{ opacity: 0, y: 8, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, x: -120, y: -120, scale: 0.94 }}
+            transition={{ duration: 0.22 }}
+            className="fixed inset-0 z-[60] pointer-events-none flex items-center justify-center px-4"
+          >
+            <div className="max-w-[92vw] md:max-w-[760px] w-full">
+              <div className="rounded-2xl border border-primary/20 shadow-xl bg-primary/90 text-primary-foreground backdrop-blur-md ring-2 ring-primary/20">
+                <div className="p-5 md:p-6">
+                  <div className="text-lg md:text-2xl font-semibold text-center">
+                    {currentTask?.en || ""}
+                  </div>
+                  {currentTask?.ko && (
+                    <div className="text-xs md:text-base/relaxed text-primary-foreground/90 text-center mt-2">
+                      {currentTask.ko}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Evaluation Loading Overlay */}
       <EvaluationLoading isVisible={isEvaluating} />
