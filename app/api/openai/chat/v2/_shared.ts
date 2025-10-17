@@ -43,6 +43,12 @@ export const FeedbackResponseSchema = z.object({
   feedback: z.string(),
 })
 
+// Hint API schemas
+export const HintResponseSchema = z.object({
+  hint: z.string(),
+  hintTranslateEn: z.string().optional(),
+})
+
 // Evaluation API schemas
 export const EvaluationInputSchema = z.object({
   scenarioInfo: z.object({
@@ -85,6 +91,7 @@ export const EvaluationResponseSchema = z.object({
 
 export type TaskSuccessResponse = z.infer<typeof TaskSuccessResponseSchema>
 export type FeedbackResponse = z.infer<typeof FeedbackResponseSchema>
+export type HintResponse = z.infer<typeof HintResponseSchema>
 export type EvaluationInput = z.infer<typeof EvaluationInputSchema>
 export type EvaluationResponse = z.infer<typeof EvaluationResponseSchema>
 

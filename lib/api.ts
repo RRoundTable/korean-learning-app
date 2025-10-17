@@ -89,13 +89,11 @@ export class ApiClient {
   private baseUrl: string
   private debugMode: boolean
   private audioCache: Map<string, string> = new Map()
-  private useV2Api: boolean
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl
     this.debugMode = process.env.NODE_ENV === 'development' && 
                     process.env.NEXT_PUBLIC_DEBUG_MODE === 'true'
-    this.useV2Api = process.env.NEXT_PUBLIC_USE_API_VERSION === 'v2'
   }
 
   private logRequest(method: string, url: string, data?: any) {
@@ -153,50 +151,8 @@ export class ApiClient {
     createdAt?: string;
     usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
   }> {
-    // Use v2 API if enabled, otherwise use v1
-    if (this.useV2Api) {
-      return this.chatAssistantV2(request)
-    }
-    
-    const url = `${this.baseUrl}/api/openai/chat/v1/assistant`
-    this.logRequest('POST', url, request)
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request),
-      credentials: 'include',
-    })
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({ error: 'Assistant request failed' }))
-      throw new Error(err.error || `Assistant failed with status ${response.status}`)
-    }
-    const data = await response.json()
-    this.logResponse('POST', '/api/openai/chat/assistant', data)
-    
-    // Back-compat shim: if `msg` exists but `task_success` missing, synthesize all-false array sized to provided tasks
-    if (data && typeof data === 'object' && 'msg' in data) {
-      const msg = (data as any).msg ?? null
-      const show_msg = Boolean((data as any).show_msg)
-      const feedback = (data as any).feedback ?? null
-      let task_success: boolean[] | undefined = (data as any).task_success
-      if (!Array.isArray(task_success)) {
-        const tasks = request.scenarioContext?.tasks || []
-        task_success = new Array(tasks.length).fill(false)
-      }
-      return { msg, show_msg, feedback, task_success, createdAt: (data as any).createdAt, usage: (data as any).usage }
-    }
-
-    // Legacy format - convert to assistant response format
-    const legacyMsg = data.text || null
-    const tasks = request.scenarioContext?.tasks || []
-    return {
-      msg: legacyMsg,
-      show_msg: true,
-      feedback: null,
-      task_success: new Array(tasks.length).fill(false),
-      createdAt: data.createdAt,
-      usage: data.usage,
-    }
+    // Always use v2
+    return this.chatAssistantV2(request)
   }
 
   // V2 API implementation with parallel processing
@@ -325,12 +281,21 @@ export class ApiClient {
   // Deprecated: chatCheckSuccess removed - now integrated into chatAssistant
 
   async chatHint(request: ChatRequest): Promise<{ hint: string; hintTranslateEn?: string | null }> {
-    const url = `${this.baseUrl}/api/openai/chat/v1/hint`
+    if (!request.currentTask) {
+      throw new Error('currentTask is required for hint v2')
+    }
+    const v2Request = {
+      currentTask: request.currentTask,
+      user_msg: request.userMessage,
+      memoryHistory: request.memoryHistory,
+      scenarioContext: request.scenarioContext
+    }
+    const url = `${this.baseUrl}/api/openai/chat/v2/hint`
     this.logRequest('POST', url, request)
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request),
+      body: JSON.stringify(v2Request),
       credentials: 'include',
     })
     if (!response.ok) {
