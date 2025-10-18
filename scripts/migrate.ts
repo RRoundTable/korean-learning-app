@@ -28,7 +28,8 @@ async function runMigrations() {
     // Get list of migration files
     const migrationFiles = [
       '001_initial_schema.sql',
-      '003_add_initial_message_to_scenarios.sql'
+      '003_add_initial_message_to_scenarios.sql',
+      '004_new_migration.sql'
     ];
 
     for (const filename of migrationFiles) {

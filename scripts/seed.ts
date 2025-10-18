@@ -12,9 +12,10 @@ async function seedDatabase() {
   try {
     // Clear existing data (in case of re-seeding)
     console.log('Clearing existing data...');
+    // Delete in reverse dependency order
     await db.execute('DELETE FROM messages');
+    await db.execute('DELETE FROM audio_files');
     await db.execute('DELETE FROM sessions');
-    await db.execute('DELETE FROM tts_audio');
     await db.execute('DELETE FROM scenario_tasks');
     await db.execute('DELETE FROM scenarios');
 

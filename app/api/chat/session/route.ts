@@ -35,6 +35,27 @@ export async function POST(request: NextRequest) {
     
     const validatedData = parseResult.data;
     
+    console.log('🔧 Creating session with:', { 
+      sessionId: validatedData.sessionId, 
+      scenarioId: validatedData.scenarioId 
+    });
+    
+    // Check if scenario exists
+    const scenarioExists = await db.execute({
+      sql: 'SELECT id FROM scenarios WHERE id = ?',
+      args: [validatedData.scenarioId]
+    });
+    
+    if (scenarioExists.rows.length === 0) {
+      console.error('❌ Scenario not found:', validatedData.scenarioId);
+      return NextResponse.json(
+        { error: 'Scenario not found', scenarioId: validatedData.scenarioId },
+        { status: 404 }
+      );
+    }
+    
+    console.log('✅ Scenario exists:', validatedData.scenarioId);
+    
     // Check if session already exists
     const existingSession = await db.execute({
       sql: 'SELECT id FROM sessions WHERE id = ?',
@@ -42,6 +63,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingSession.rows.length > 0) {
+      console.log('✅ Session already exists:', validatedData.sessionId);
       return NextResponse.json({
         id: validatedData.sessionId,
         scenarioId: validatedData.scenarioId,
@@ -51,6 +73,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Create new session
+    console.log('📝 Creating new session...');
     await db.execute({
       sql: `INSERT INTO sessions (id, scenario_id, user_id) VALUES (?, ?, ?)`,
       args: [
@@ -59,6 +82,8 @@ export async function POST(request: NextRequest) {
         validatedData.userId || null,
       ]
     });
+    
+    console.log('✅ Session created successfully');
 
     const response: SessionResponse = {
       id: validatedData.sessionId,
@@ -73,7 +98,12 @@ export async function POST(request: NextRequest) {
     console.error('❌ Error creating session:', error);
     
     return NextResponse.json(
-      { error: 'Failed to create session' },
+      { 
+        error: 'Failed to create session',
+        details: error instanceof Error ? error.message : String(error),
+        sessionId: validatedData?.sessionId,
+        scenarioId: validatedData?.scenarioId
+      },
       { status: 500 }
     );
   }

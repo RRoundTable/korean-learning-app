@@ -407,6 +407,72 @@ export class ApiClient {
     return objectUrl
   }
 
+  // Get persistent TTS URL from Vercel Blob storage
+  async getOrCreatePersistentTtsUrl(text: string, options: Omit<OpenAiTtsStreamOptions, 'text'> & { messageId?: string }): Promise<string> {
+    const cacheKey = `persistent|${text}|${options.sessionId}|${options.voice || 'nova'}|${options.format || 'mp3'}|${options.instructions || 'default'}`
+    const cached = this.audioCache.get(cacheKey)
+    if (cached) return cached
+
+    try {
+      const response = await fetch(`${this.baseUrl}/api/openai/text-to-speech`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text,
+          voice: options.voice || 'nova',
+          format: options.format || 'mp3',
+          sampleRate: 24000,
+          instructions: options.instructions,
+          persist: true,
+          sessionId: options.sessionId,
+          messageId: options.messageId,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`TTS API error: ${response.status}`)
+      }
+
+      const result = await response.json()
+      const url = result.url
+      
+      // Cache the persistent URL
+      this.audioCache.set(cacheKey, url)
+      return url
+    } catch (error) {
+      console.error('Failed to get persistent TTS URL, falling back to blob URL:', error)
+      // Fallback to non-persistent blob URL
+      return this.getOrCreateTtsObjectUrl(text, options)
+    }
+  }
+
+  // Upload user audio recording to Vercel Blob storage
+  async uploadUserAudio(audioBlob: Blob, options: { sessionId: string; messageId?: string; format?: string; durationMs?: number }): Promise<{ id: string; url: string; contentType: string; durationMs?: number }> {
+    const formData = new FormData()
+    formData.append('audio', audioBlob)
+    formData.append('sessionId', options.sessionId)
+    if (options.messageId) {
+      formData.append('messageId', options.messageId)
+    }
+    formData.append('format', options.format || 'webm')
+    if (options.durationMs) {
+      formData.append('durationMs', options.durationMs.toString())
+    }
+
+    const response = await fetch(`${this.baseUrl}/api/audio/upload`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      throw new Error(`Audio upload error: ${response.status}`)
+    }
+
+    return response.json()
+  }
+
   // Clear audio cache (call on component unmount)
   clearAudioCache(): void {
     // Revoke any object URLs before clearing

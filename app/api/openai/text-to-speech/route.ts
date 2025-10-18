@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { db } from "@/lib/db"
 import { v4 as uuidv4 } from "uuid"
+import { uploadAudio, generateAudioFilename } from "@/lib/audio-storage"
 
 export const runtime = "nodejs"
 
@@ -14,7 +15,7 @@ export const TtsQuerySchema = z.object({
   sampleRate: z.coerce.number().int().min(8000).max(48000).default(24000).optional(),
   instructions: z.string().optional(),
   persist: z.coerce.boolean().default(false).optional(),
-  messageId: z.string().uuid().optional(),
+  messageId: z.string().optional(),
 })
 export type TtsQuery = z.infer<typeof TtsQuerySchema>
 
@@ -26,8 +27,8 @@ export const TtsPostSchema = z.object({
   sampleRate: z.number().int().min(8000).max(48000).default(24000).optional(),
   instructions: z.string().optional(),
   persist: z.boolean().default(false).optional(),
-  sessionId: z.string().uuid().optional(),
-  messageId: z.string().uuid().optional(),
+  sessionId: z.string().optional(),
+  messageId: z.string().optional(),
 })
 export type TtsPostInput = z.infer<typeof TtsPostSchema>
 
@@ -111,8 +112,25 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
+    
     const validatedData = TtsPostSchema.parse(body)
     const { text, voice = "alloy", format = "mp3", sampleRate = 24000, instructions, persist = false, sessionId, messageId } = validatedData
+    
+    console.log('🎵 TTS API POST request received:', { 
+      text: text?.substring(0, 50) + '...', 
+      voice, 
+      format, 
+      persist, 
+      sessionId, 
+      messageId 
+    })
+    
+    console.log('🎵 TTS API validated data:', { 
+      persist, 
+      sessionId, 
+      messageId, 
+      hasBlobToken: !!process.env.BLOB_READ_WRITE_TOKEN 
+    })
 
     // Call OpenAI Audio Speech API
     const model = process.env.OPENAI_TTS_MODEL || "tts-1"
@@ -150,35 +168,78 @@ export async function POST(request: NextRequest) {
     // If persistence is requested and sessionId is provided
     if (persist && sessionId) {
       try {
-        const ttsId = uuidv4()
+        console.log(`🎵 Attempting to persist TTS audio for session: ${sessionId}`)
         
-        // Save to database
-        await db.execute({
-          sql: `INSERT INTO tts_audio (
-            id, session_id, message_id, text, voice, format, content_type, bytes
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [
-            ttsId,
+        // First check if session exists
+        const sessionCheck = await db.execute({
+          sql: 'SELECT id FROM sessions WHERE id = ?',
+          args: [sessionId]
+        })
+        
+        if (sessionCheck.rows.length === 0) {
+          console.error(`❌ Session not found: ${sessionId}`)
+          throw new Error(`Session not found: ${sessionId}`)
+        }
+        
+        console.log(`✅ Session exists: ${sessionId}`)
+        
+        const audioId = uuidv4()
+        
+        // Check if BLOB_READ_WRITE_TOKEN is available
+        if (!process.env.BLOB_READ_WRITE_TOKEN) {
+          console.error("❌ BLOB_READ_WRITE_TOKEN environment variable is not set")
+          throw new Error("Vercel Blob storage not configured")
+        }
+        
+        // Upload to Vercel Blob storage
+        const uploadResult = await uploadAudio(
+          new Uint8Array(audioBuffer),
+          {
             sessionId,
-            messageId || null,
+            messageId,
+            audioType: 'tts',
             text,
             voice,
             format,
             contentType,
-            new Uint8Array(audioBuffer)
+          }
+        )
+        
+        console.log(`✅ TTS audio uploaded to Vercel Blob: ${uploadResult.url}`)
+        
+        // Save metadata to database
+        await db.execute({
+          sql: `INSERT INTO audio_files (
+            id, session_id, message_id, audio_type, text, voice, format, 
+            content_type, vercel_url, duration_ms
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [
+            audioId,
+            sessionId,
+            messageId || null,
+            'tts',
+            text,
+            voice,
+            format,
+            contentType,
+            uploadResult.url,
+            uploadResult.durationMs || null
           ]
         })
 
-        // Return JSON response with stable URL
+        console.log(`✅ TTS audio metadata saved to database with ID: ${audioId}`)
+
+        // Return JSON response with Vercel Blob URL
         const response: TtsPersistResponse = {
-          id: ttsId,
-          url: `/api/media/tts/${ttsId}`,
-          contentType,
+          id: audioId,
+          url: uploadResult.url,
+          contentType: uploadResult.contentType,
+          durationMs: uploadResult.durationMs,
         }
 
         return NextResponse.json(response)
       } catch (dbError) {
-        console.error("Failed to persist TTS:", dbError)
+        console.error("❌ Failed to persist TTS:", dbError)
         // Fall through to return audio directly if persistence fails
       }
     }

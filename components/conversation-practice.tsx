@@ -88,7 +88,14 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   // 세션 생성 함수
   const ensureSession = async () => {
     try {
-      await fetch('/api/chat/session', {
+      console.log('🔧 Ensuring session exists:', { sessionId, scenarioId: scenario.id })
+      
+      // Validate scenario ID format (should be UUID)
+      if (!scenario.id || typeof scenario.id !== 'string') {
+        throw new Error(`Invalid scenario ID: ${scenario.id}`)
+      }
+      
+      const response = await fetch('/api/chat/session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -98,8 +105,22 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           scenarioId: scenario.id,
         }),
       })
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('❌ Session creation failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData
+        })
+        throw new Error(`Session creation failed: ${response.status} - ${JSON.stringify(errorData)}`)
+      }
+      
+      const sessionData = await response.json()
+      console.log('✅ Session ensured successfully:', sessionData)
     } catch (error) {
       console.error('❌ Failed to create session:', error)
+      throw error // Re-throw to let caller handle
     }
   }
 
@@ -301,8 +322,11 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     let isActive = true
     ;(async () => {
       try {
+        // Ensure session exists before TTS
+        await ensureSession()
+        
         setAgentSpeaking(true)
-        const audioUrl = await apiClient.getOrCreateTtsObjectUrl(text, {
+        const audioUrl = await apiClient.getOrCreatePersistentTtsUrl(text, {
           sessionId,
           voice: scenario.ttsVoice || "nova",
           format: "mp3",
@@ -335,8 +359,38 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           audio.onerror = () => resolve()
           audio.play().catch(() => resolve())
         })
-      } catch {
-        // noop – failures should not block interaction
+      } catch (error) {
+        console.error("Initial TTS failed:", error)
+        // Fallback to non-persistent TTS
+        try {
+          const fallbackUrl = await apiClient.getOrCreateTtsObjectUrl(text, {
+            voice: scenario.ttsVoice || "nova",
+            format: "mp3",
+            instructions: scenario.ttsInstructions,
+          })
+          
+          if (!isActive) return
+          
+          const audio = new Audio(fallbackUrl)
+          audioRef.current = audio
+          hasPlayedInitialTtsRef.current = true
+          
+          await new Promise<void>((resolve) => {
+            audio.onended = () => {
+              if (!hasUserStartedRecording) {
+                setShowInitialMicPrompt(true)
+              }
+              if (!textOnlyMode) {
+                showOverlayWithAutoDismiss()
+              }
+              resolve()
+            }
+            audio.onerror = () => resolve()
+            audio.play().catch(() => resolve())
+          })
+        } catch (fallbackError) {
+          console.error("Fallback initial TTS also failed:", fallbackError)
+        }
       } finally {
         if (isActive) setAgentSpeaking(false)
       }
@@ -703,8 +757,12 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           showOverlayWithAutoDismiss()
         } else {
           try {
-            const audioUrl = await apiClient.getOrCreateTtsObjectUrl(unifiedResponse.msg, {
+            // Create a message ID for TTS association
+            const messageId = `assistant-${Date.now()}`
+            
+            const audioUrl = await apiClient.getOrCreatePersistentTtsUrl(unifiedResponse.msg, {
               sessionId,
+              messageId,
               voice: scenario.ttsVoice || "nova",
               format: "mp3",
               instructions: scenario.ttsInstructions,
@@ -730,8 +788,37 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
             })
           } catch (e) {
             console.error("TTS error:", e)
-            setAgentSpeaking(false)
-            showOverlayWithAutoDismiss()
+            // Fallback to non-persistent TTS
+            try {
+              const fallbackUrl = await apiClient.getOrCreateTtsObjectUrl(unifiedResponse.msg, {
+                voice: scenario.ttsVoice || "nova",
+                format: "mp3",
+                instructions: scenario.ttsInstructions,
+              })
+              const audio = new Audio(fallbackUrl)
+              audioRef.current = audio
+              await new Promise<void>((resolve) => {
+                audio.onended = () => {
+                  setAgentSpeaking(false)
+                  showOverlayWithAutoDismiss()
+                  resolve()
+                }
+                audio.onerror = () => {
+                  setAgentSpeaking(false)
+                  showOverlayWithAutoDismiss()
+                  resolve()
+                }
+                audio.play().catch(() => {
+                  setAgentSpeaking(false)
+                  showOverlayWithAutoDismiss()
+                  resolve()
+                })
+              })
+            } catch (fallbackError) {
+              console.error("Fallback TTS also failed:", fallbackError)
+              setAgentSpeaking(false)
+              showOverlayWithAutoDismiss()
+            }
           }
         }
       }
@@ -774,7 +861,22 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     setIsProcessing(true)
     
     try {
-      // Step 1: STT - Convert audio to text
+      // Step 1: Ensure session exists before uploading user audio
+      await ensureSession()
+      
+      // Step 2: Upload user audio to Vercel Blob storage
+      try {
+        await apiClient.uploadUserAudio(audioBlob, {
+          sessionId,
+          format: 'webm',
+          durationMs: recordingDuration * 1000, // Convert seconds to milliseconds
+        })
+      } catch (uploadError) {
+        console.error('Failed to upload user audio:', uploadError)
+        // Continue processing even if upload fails
+      }
+
+      // Step 2: STT - Convert audio to text
       const sttResponse = await apiClient.stt(audioBlob, { 
         language: "ko",
         prompt: "한국어 대화 연습" 
@@ -1064,9 +1166,12 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
     if (!hint || isHintPlaying) return
     
     try {
+      // Ensure session exists before TTS
+      await ensureSession()
+      
       setIsHintPlaying(true)
       // Fetch once and cache as Blob object URL
-      const audioUrl = await apiClient.getOrCreateTtsObjectUrl(hint, {
+      const audioUrl = await apiClient.getOrCreatePersistentTtsUrl(hint, {
         sessionId,
         voice: scenario.ttsVoice || "nova",
         format: "mp3",
@@ -1092,7 +1197,35 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       })
     } catch (error) {
       console.error("Error playing hint TTS:", error)
-      setIsHintPlaying(false)
+      // Fallback to non-persistent TTS
+      try {
+        const fallbackUrl = await apiClient.getOrCreateTtsObjectUrl(hint, {
+          voice: scenario.ttsVoice || "nova",
+          format: "mp3",
+          instructions: scenario.ttsInstructions,
+        })
+        
+        const audio = new Audio(fallbackUrl)
+        hintAudioRef.current = audio
+        
+        await new Promise<void>((resolve) => {
+          audio.onended = () => {
+            setIsHintPlaying(false)
+            resolve()
+          }
+          audio.onerror = () => {
+            setIsHintPlaying(false)
+            resolve()
+          }
+          audio.play().catch(() => {
+            setIsHintPlaying(false)
+            resolve()
+          })
+        })
+      } catch (fallbackError) {
+        console.error("Fallback hint TTS also failed:", fallbackError)
+        setIsHintPlaying(false)
+      }
     }
   }
 
@@ -1344,7 +1477,10 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                               onClick={async () => {
                                 if (textOnlyMode) return
                                 try {
-                                  const audioUrl = await apiClient.getOrCreateTtsObjectUrl(message.text, {
+                                  // Ensure session exists before TTS
+                                  await ensureSession()
+                                  
+                                  const audioUrl = await apiClient.getOrCreatePersistentTtsUrl(message.text, {
                                     sessionId,
                                     voice: scenario.ttsVoice || "nova",
                                     format: "mp3",
@@ -1352,7 +1488,21 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
                                   })
                                   const audio = new Audio(audioUrl)
                                   audio.play().catch(() => {})
-                                } catch {}
+                                } catch (error) {
+                                  console.error("Message TTS failed:", error)
+                                  // Fallback to non-persistent TTS
+                                  try {
+                                    const fallbackUrl = await apiClient.getOrCreateTtsObjectUrl(message.text, {
+                                      voice: scenario.ttsVoice || "nova",
+                                      format: "mp3",
+                                      instructions: scenario.ttsInstructions,
+                                    })
+                                    const audio = new Audio(fallbackUrl)
+                                    audio.play().catch(() => {})
+                                  } catch (fallbackError) {
+                                    console.error("Fallback message TTS also failed:", fallbackError)
+                                  }
+                                }
                               }}
                             >
                               <Volume2 className="w-4 h-4" />
