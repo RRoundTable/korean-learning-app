@@ -3,6 +3,8 @@ import { db } from '@/lib/db';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 
+export const runtime = 'nodejs';
+
 // Input validation schema
 const LogMessageSchema = z.object({
   sessionId: z.string().min(1),

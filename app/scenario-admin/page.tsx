@@ -9,6 +9,9 @@ import Link from 'next/link';
 import { getAdminScenarios } from '@/lib/data/admin-scenarios';
 import { ScenarioAdminClient } from './scenario-admin-client';
 
+// Use Node.js runtime for database operations
+export const runtime = 'nodejs';
+
 export default async function ScenarioAdminPage() {
   // Get initial data for server-side rendering
   let initialData;

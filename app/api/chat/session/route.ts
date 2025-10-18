@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { z } from 'zod';
 
+export const runtime = 'nodejs';
+
 // Input validation schema
 const CreateSessionSchema = z.object({
   sessionId: z.string().min(1),

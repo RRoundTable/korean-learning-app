@@ -10,6 +10,8 @@ import {
 } from '@/lib/types/admin';
 import { z } from 'zod';
 
+export const runtime = 'nodejs';
+
 // GET /api/admin/scenarios - List scenarios with filtering
 export async function GET(request: NextRequest) {
   try {

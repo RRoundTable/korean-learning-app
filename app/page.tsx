@@ -5,6 +5,9 @@ import { Users, Trophy, Zap, Home, Menu, Search, Bell } from "lucide-react"
 import Link from "next/link"
 import { getScenarios } from "@/lib/data/scenarios"
 
+// Use Node.js runtime for database operations
+export const runtime = 'nodejs';
+
 export default async function KoreanLearningApp() {
   const scenarios = await getScenarios()
 
