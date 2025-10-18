@@ -4,7 +4,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 // Load environment variables
-config({ path: '.env.local' });
+config({ path: process.env.NODE_ENV === 'production' ? '.env.prod' : '.env.local' });
 
 async function runMigrations() {
   console.log('Starting database migrations...');
