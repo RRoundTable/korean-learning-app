@@ -29,7 +29,9 @@ async function runMigrations() {
     const migrationFiles = [
       '001_initial_schema.sql',
       '003_add_initial_message_to_scenarios.sql',
-      '004_new_migration.sql'
+      '004_new_migration.sql',
+      '005_add_status_to_scenarios.sql',
+      '006_update_existing_scenarios_status.sql'
     ];
 
     for (const filename of migrationFiles) {

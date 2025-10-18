@@ -15,6 +15,7 @@ export interface DatabaseScenario {
   stt_prompt: string | null;
   initial_message_text: string | null;
   initial_message_translation: string | null;
+  status: string;
   created_at: string;
   updated_at: string;
 }
@@ -36,11 +37,12 @@ function toPlainObject<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
 }
 
-// Get all scenarios
+// Get all public scenarios (for main page)
 export async function getScenarios(): Promise<DatabaseScenario[]> {
   try {
     const result = await db.execute(`
       SELECT * FROM scenarios 
+      WHERE status = 'public'
       ORDER BY created_at ASC
     `);
     
@@ -52,13 +54,13 @@ export async function getScenarios(): Promise<DatabaseScenario[]> {
   }
 }
 
-// Get a single scenario with its tasks
+// Get a single public scenario with its tasks
 export async function getScenarioWithTasks(id: string): Promise<ScenarioWithTasks | null> {
   try {
-    // Get scenario
+    // Get scenario (only public ones)
     const scenarioResult = await db.execute({
-      sql: 'SELECT * FROM scenarios WHERE id = ?',
-      args: [id]
+      sql: 'SELECT * FROM scenarios WHERE id = ? AND status = ?',
+      args: [id, 'public']
     });
     
     if (scenarioResult.rows.length === 0) {
@@ -82,6 +84,22 @@ export async function getScenarioWithTasks(id: string): Promise<ScenarioWithTask
   } catch (error) {
     console.error('Error fetching scenario with tasks:', error);
     throw new Error('Failed to fetch scenario with tasks');
+  }
+}
+
+// Get all scenarios (for admin page - includes all statuses)
+export async function getAllScenarios(): Promise<DatabaseScenario[]> {
+  try {
+    const result = await db.execute(`
+      SELECT * FROM scenarios 
+      ORDER BY created_at ASC
+    `);
+    
+    // Convert to plain objects to avoid serialization warnings
+    return result.rows.map(row => toPlainObject(row)) as DatabaseScenario[];
+  } catch (error) {
+    console.error('Error fetching all scenarios:', error);
+    throw new Error('Failed to fetch all scenarios');
   }
 }
 
