@@ -84,6 +84,56 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
   // 마이크 안내 관련 상태
   const [showInitialMicPrompt, setShowInitialMicPrompt] = useState(false)
   const [hasUserStartedRecording, setHasUserStartedRecording] = useState(false)
+
+  // 세션 생성 함수
+  const ensureSession = async () => {
+    try {
+      await fetch('/api/chat/session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId,
+          scenarioId: scenario.id,
+        }),
+      })
+    } catch (error) {
+      console.error('❌ Failed to create session:', error)
+    }
+  }
+
+  // 메시지 로깅 함수
+  const logMessage = async (role: 'user' | 'assistant' | 'feedback', text: string, displayText?: string, taskIdx?: number, showMsg?: boolean) => {
+    try {
+      // 먼저 세션이 존재하는지 확인하고 생성
+      await ensureSession()
+      
+      const response = await fetch('/api/chat/log', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId,
+          role,
+          text,
+          displayText,
+          taskIdx,
+          showMsg,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('❌ API Error Response:', errorData)
+        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${JSON.stringify(errorData)}`)
+      }
+    } catch (error) {
+      console.error('❌ Failed to log message:', error)
+      // 로깅 실패는 사용자 경험을 방해하지 않도록 조용히 처리
+    }
+  }
   
   // 중앙 오버레이 상태
   const [showTaskOverlay, setShowTaskOverlay] = useState(false)
@@ -560,6 +610,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         return msg
       })
     })
+
+    // Log user message to database
+    await logMessage('user', formattedUserMessage, userText, currentTaskIndex)
     
     // Step 2: Prepare shared conversation snapshot
     const memoryHistoryAll = messages
@@ -615,13 +668,14 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       // Single API call for unified response
       
       unifiedResponse = await apiClient.chatAssistant(chatPayload).catch((e) => {
-        console.error("Assistant error", e)
+        console.error("❌ Assistant error", e)
         return { 
           msg: null, 
           show_msg: false, 
           feedback: "죄송합니다. 오류가 발생했습니다. 다시 시도해주세요.",
         }
       })
+
 
       // Handle unified response
       if (unifiedResponse?.show_msg && unifiedResponse?.msg) {
@@ -636,6 +690,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           }
           return [...prev, newMessage]
         })
+
+        // Log assistant message to database
+        await logMessage('assistant', unifiedResponse.msg, undefined, currentTaskIndex, true)
 
         // Assistant 응답 시 힌트 자동 숨김
         setShowHint(false)
@@ -685,7 +742,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       }
 
       // Show feedback message if available (regardless of show_msg value)
-      if (unifiedResponse?.feedback) {
+      if (unifiedResponse?.feedback && unifiedResponse.feedback !== 'undefined' && unifiedResponse.feedback.trim() !== '') {
         const feedback = unifiedResponse.feedback
         setMessages(prev => prev.concat([{ 
           id: `feedback-${Date.now()}`, 
@@ -693,6 +750,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
           text: feedback as string,
           isFeedback: true
         }]))
+
+        // Log feedback message to database
+        await logMessage('feedback', feedback, undefined, currentTaskIndex)
       }
 
     } catch (e) {
@@ -787,6 +847,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         return updatedMessages
       })
 
+      // Log user message to database
+      await logMessage('user', formattedUserMessage, userText, currentTaskIndex)
+
       // Prepare conversation snapshot
       const memoryHistoryAll = messages
         .filter(msg => !msg.isWaiting && msg.text)
@@ -840,13 +903,14 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         // Single API call for unified response
         
         unifiedResponse = await apiClient.chatAssistant(chatPayload).catch((e) => {
-          console.error("Assistant error", e)
+          console.error("❌ [Text Mode] Assistant error", e)
           return { 
             msg: null, 
             show_msg: false, 
             feedback: "죄송합니다. 오류가 발생했습니다. 다시 시도해주세요.",
           }
         })
+
 
         // Handle unified response
         if (unifiedResponse?.show_msg && unifiedResponse?.msg) {
@@ -857,6 +921,10 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
             text: unifiedResponse?.msg!,
             translateEn: undefined
           }]))
+
+          // Log assistant message to database
+          await logMessage('assistant', unifiedResponse.msg, undefined, currentTaskIndex, true)
+
           setShowHint(false)
           if (textOnlyMode) {
             showOverlayWithAutoDismiss()
@@ -864,7 +932,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
         }
 
         // Show feedback message if available (regardless of show_msg value)
-        if (unifiedResponse?.feedback) {
+        if (unifiedResponse?.feedback && unifiedResponse.feedback !== 'undefined' && unifiedResponse.feedback.trim() !== '') {
           const feedback = unifiedResponse.feedback
           setMessages(prev => prev.concat([{ 
             id: `feedback-${Date.now()}`, 
@@ -872,6 +940,9 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
             text: feedback as string,
             isFeedback: true
           }]))
+
+          // Log feedback message to database
+          await logMessage('feedback', feedback, undefined, currentTaskIndex)
         }
         
         // Latch per-task successes if provided

@@ -190,6 +190,10 @@ export class ApiClient {
       // Process assistant response
       if (assistantRes.status === 'fulfilled') {
         assistant = assistantRes.value
+        // Handle undefined/null responses
+        if (assistant === 'undefined' || assistant === null || assistant === undefined) {
+          assistant = null
+        }
       }
 
       // Process task success response
@@ -200,6 +204,10 @@ export class ApiClient {
       // Process feedback response
       if (feedbackRes.status === 'fulfilled') {
         feedback = feedbackRes.value
+        // Handle undefined/null responses
+        if (feedback === 'undefined' || feedback === null || feedback === undefined) {
+          feedback = null
+        }
       }
 
       // Determine what to show based on task success

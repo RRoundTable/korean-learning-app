@@ -1,13 +1,12 @@
-"use client"
-
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Users, Trophy, Zap, Home, Menu, Search, Bell } from "lucide-react"
 import Link from "next/link"
-import { scenarios } from "@/lib/scenarios"
+import { getScenarios } from "@/lib/data/scenarios"
 
-export default function KoreanLearningApp() {
+export default async function KoreanLearningApp() {
+  const scenarios = await getScenarios()
 
   return (
     <div className="min-h-screen bg-background">
@@ -87,14 +86,14 @@ export default function KoreanLearningApp() {
               <Link key={scenario.id} href={`/scenario/${scenario.id}`}>
                 <Card className="cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-200 relative overflow-hidden group bg-card border-border">
                   <CardContent className="p-6">
-                    {scenario.isFree && (
+                    {scenario.is_free === 1 && (
                       <Badge className="absolute top-3 left-3 bg-accent text-accent-foreground">FREE</Badge>
                     )}
                     <div className="text-5xl mb-4 text-center group-hover:scale-110 transition-transform">
                       {scenario.emoji}
                     </div>
                     <h3 className="font-bold text-lg mb-2 text-balance text-card-foreground">{scenario.title}</h3>
-                    <p className="text-sm text-muted-foreground text-pretty">{scenario.titleEn}</p>
+                    <p className="text-sm text-muted-foreground text-pretty">{scenario.title_en}</p>
                   </CardContent>
                 </Card>
               </Link>

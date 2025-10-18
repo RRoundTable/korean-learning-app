@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
+import { db } from "@/lib/db"
+import { v4 as uuidv4 } from "uuid"
 
 export const runtime = "nodejs"
 
@@ -11,8 +13,32 @@ export const TtsQuerySchema = z.object({
   format: z.enum(["mp3", "wav"]).default("mp3").optional(),
   sampleRate: z.coerce.number().int().min(8000).max(48000).default(24000).optional(),
   instructions: z.string().optional(),
+  persist: z.coerce.boolean().default(false).optional(),
+  messageId: z.string().uuid().optional(),
 })
 export type TtsQuery = z.infer<typeof TtsQuerySchema>
+
+// POST body schema for persistent TTS
+export const TtsPostSchema = z.object({
+  text: z.string().min(1),
+  voice: z.string().default("alloy").optional(),
+  format: z.enum(["mp3", "wav"]).default("mp3").optional(),
+  sampleRate: z.number().int().min(8000).max(48000).default(24000).optional(),
+  instructions: z.string().optional(),
+  persist: z.boolean().default(false).optional(),
+  sessionId: z.string().uuid().optional(),
+  messageId: z.string().uuid().optional(),
+})
+export type TtsPostInput = z.infer<typeof TtsPostSchema>
+
+// Response schema for persistent TTS
+export const TtsPersistResponseSchema = z.object({
+  id: z.string().uuid(),
+  url: z.string(),
+  contentType: z.string(),
+  durationMs: z.number().optional(),
+})
+export type TtsPersistResponse = z.infer<typeof TtsPersistResponseSchema>
 
 function contentTypeFor(format: string): string {
   return format === "wav" ? "audio/wav" : "audio/mpeg"
@@ -77,7 +103,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST method for easier integration
+// POST method for easier integration with optional persistence
 export async function POST(request: NextRequest) {
   try {
     if (!process.env.OPENAI_API_KEY) {
@@ -85,14 +111,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { text, voice = "alloy", format = "mp3", sampleRate = 24000, instructions } = body
-
-    if (!text) {
-      return NextResponse.json({ error: "text is required" }, { status: 400 })
-    }
+    const validatedData = TtsPostSchema.parse(body)
+    const { text, voice = "alloy", format = "mp3", sampleRate = 24000, instructions, persist = false, sessionId, messageId } = validatedData
 
     // Call OpenAI Audio Speech API
-    const model = process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts"
+    const model = process.env.OPENAI_TTS_MODEL || "tts-1"
     
     const requestBody: any = {
       model,
@@ -121,12 +144,50 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `TTS provider error: ${openaiResp.status} ${errText}` }, { status: 502 })
     }
 
-    // Return the audio blob directly
     const audioBuffer = await openaiResp.arrayBuffer()
+    const contentType = contentTypeFor(format)
+
+    // If persistence is requested and sessionId is provided
+    if (persist && sessionId) {
+      try {
+        const ttsId = uuidv4()
+        
+        // Save to database
+        await db.execute({
+          sql: `INSERT INTO tts_audio (
+            id, session_id, message_id, text, voice, format, content_type, bytes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [
+            ttsId,
+            sessionId,
+            messageId || null,
+            text,
+            voice,
+            format,
+            contentType,
+            new Uint8Array(audioBuffer)
+          ]
+        })
+
+        // Return JSON response with stable URL
+        const response: TtsPersistResponse = {
+          id: ttsId,
+          url: `/api/media/tts/${ttsId}`,
+          contentType,
+        }
+
+        return NextResponse.json(response)
+      } catch (dbError) {
+        console.error("Failed to persist TTS:", dbError)
+        // Fall through to return audio directly if persistence fails
+      }
+    }
+
+    // Return the audio blob directly (non-persistent or fallback)
     return new NextResponse(audioBuffer, {
       status: 200,
       headers: {
-        'Content-Type': contentTypeFor(format),
+        'Content-Type': contentType,
         'Content-Length': audioBuffer.byteLength.toString(),
         'Cache-Control': 'public, max-age=3600',
       },
