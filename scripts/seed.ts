@@ -4,7 +4,7 @@ import { scenarios } from '../lib/scenarios';
 import { v4 as uuidv4 } from 'uuid';
 
 // Load environment variables
-config({ path: '.env.local' });
+config({ path: process.env.NODE_ENV === 'production' ? '.env.prod' : '.env.local' });
 
 async function seedDatabase() {
   console.log('Starting database seed...');

@@ -10,7 +10,8 @@
     "db:generate:dev": "tsx scripts/generate-migration.ts",
     "db:migrate:dev": "tsx scripts/migrate.ts",
     "db:migrate:prod": "NODE_ENV=production tsx scripts/migrate.ts",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "db:seed:prod": "NODE_ENV=production tsx scripts/seed.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
