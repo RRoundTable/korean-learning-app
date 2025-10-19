@@ -110,6 +110,8 @@ export async function getAdminScenario(id: string): Promise<ScenarioResponse | n
     }
 
     const scenario = scenarioResult.rows[0];
+    console.log('Raw scenario from DB:', scenario);
+    console.log('Raw scenario.status:', scenario.status);
 
     // Get tasks
     const tasksResult = await db.execute({
@@ -125,7 +127,7 @@ export async function getAdminScenario(id: string): Promise<ScenarioResponse | n
       en: row.en as string,
     }));
 
-    return {
+    const result = {
       id: scenario.id as string,
       title: scenario.title as string,
       title_en: scenario.title_en as string,
@@ -145,6 +147,9 @@ export async function getAdminScenario(id: string): Promise<ScenarioResponse | n
       updated_at: scenario.updated_at as string,
       tasks,
     };
+    
+    console.log('Returning scenario with status:', result.status);
+    return result;
   } catch (error) {
     console.error('Error fetching admin scenario:', error);
     throw new Error('Failed to fetch scenario');

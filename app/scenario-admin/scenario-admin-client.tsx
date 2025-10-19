@@ -37,6 +37,7 @@ export function ScenarioAdminClient({ initialData }: ScenarioAdminClientProps) {
   const [scenarios, setScenarios] = useState(initialData?.scenarios || []);
   const [pagination, setPagination] = useState(initialData?.pagination || { page: 1, limit: 20, total: 0, total_pages: 0 });
   const [loading, setLoading] = useState(false);
+  const [editingScenarioId, setEditingScenarioId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedScenarios, setSelectedScenarios] = useState<string[]>([]);
@@ -127,6 +128,27 @@ export function ScenarioAdminClient({ initialData }: ScenarioAdminClientProps) {
       ));
     } catch (error) {
       console.error('Error updating status:', error);
+    }
+  };
+
+  // Handle edit - fetch full scenario data with tasks
+  const handleEdit = async (scenarioId: string) => {
+    try {
+      setEditingScenarioId(scenarioId);
+      const response = await fetch(`/api/admin/scenarios/${scenarioId}`);
+      
+      if (!response.ok) throw new Error('Failed to fetch scenario');
+      
+      const fullScenario = await response.json();
+      console.log('Fetched scenario for edit:', fullScenario);
+      console.log('Scenario status:', fullScenario.status);
+      setEditingScenario(fullScenario);
+      setIsFormOpen(true);
+    } catch (error) {
+      console.error('Error fetching scenario for edit:', error);
+      alert('Failed to load scenario data. Please try again.');
+    } finally {
+      setEditingScenarioId(null);
     }
   };
 
@@ -388,12 +410,14 @@ export function ScenarioAdminClient({ initialData }: ScenarioAdminClientProps) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => {
-                          setEditingScenario(scenario as any);
-                          setIsFormOpen(true);
-                        }}
+                        onClick={() => handleEdit(scenario.id)}
+                        disabled={editingScenarioId === scenario.id}
                       >
-                        <Edit className="w-4 h-4" />
+                        {editingScenarioId === scenario.id ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                        ) : (
+                          <Edit className="w-4 h-4" />
+                        )}
                       </Button>
                       
                       <Select onValueChange={(value) => handleStatusUpdate(scenario.id, value)}>

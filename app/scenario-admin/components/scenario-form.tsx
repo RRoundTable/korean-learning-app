@@ -40,8 +40,50 @@ export function ScenarioForm({ scenario, onClose, onSuccess }: ScenarioFormProps
 
   // Initialize form with scenario data if editing
   useEffect(() => {
+    console.log('ScenarioForm useEffect triggered, scenario:', scenario);
+    console.log('ScenarioForm scenario?.id:', scenario?.id);
+    console.log('ScenarioForm scenario?.status:', scenario?.status);
+    
     if (scenario) {
-      setFormData({
+      console.log('ScenarioForm received scenario:', scenario);
+      console.log('ScenarioForm scenario.status:', scenario.status);
+      
+      // Force a complete re-render by using setTimeout
+      setTimeout(() => {
+        const newFormData = {
+          title: scenario.title,
+          title_en: scenario.title_en,
+          role: scenario.role,
+          user_role: scenario.user_role,
+          description: scenario.description,
+          description_en: scenario.description_en,
+          emoji: scenario.emoji || '',
+          is_free: scenario.is_free === 1,
+          tts_voice: scenario.tts_voice || '',
+          tts_instructions: scenario.tts_instructions || '',
+          stt_prompt: scenario.stt_prompt || '',
+          initial_message_text: scenario.initial_message_text || '',
+          initial_message_translation: scenario.initial_message_translation || '',
+          status: scenario.status === 'public' ? 'public' : scenario.status === 'archived' ? 'archived' : 'draft',
+          tasks: scenario.tasks && scenario.tasks.length > 0 ? scenario.tasks.map(t => ({ id: t.id, ko: t.ko, en: t.en })) : [{ ko: '', en: '' }],
+        };
+        console.log('Setting formData with status:', newFormData.status);
+        setFormData(newFormData);
+      }, 0);
+    } else {
+      console.log('No scenario provided, using default formData');
+    }
+  }, [scenario?.id, scenario?.status]);
+
+  // Additional useEffect to handle scenario changes
+  useEffect(() => {
+    if (scenario && scenario.id) {
+      console.log('Scenario ID changed, updating form data');
+      console.log('New scenario status:', scenario.status);
+      
+      // Force update formData when scenario changes
+      setFormData(prev => ({
+        ...prev,
         title: scenario.title,
         title_en: scenario.title_en,
         role: scenario.role,
@@ -55,11 +97,11 @@ export function ScenarioForm({ scenario, onClose, onSuccess }: ScenarioFormProps
         stt_prompt: scenario.stt_prompt || '',
         initial_message_text: scenario.initial_message_text || '',
         initial_message_translation: scenario.initial_message_translation || '',
-        status: scenario.status,
+        status: scenario.status === 'public' ? 'public' : scenario.status === 'archived' ? 'archived' : 'draft',
         tasks: scenario.tasks && scenario.tasks.length > 0 ? scenario.tasks.map(t => ({ id: t.id, ko: t.ko, en: t.en })) : [{ ko: '', en: '' }],
-      });
+      }));
     }
-  }, [scenario]);
+  }, [scenario?.id]);
 
   const handleInputChange = (field: keyof CreateScenarioInput, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -215,7 +257,11 @@ export function ScenarioForm({ scenario, onClose, onSuccess }: ScenarioFormProps
             
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
-              <Select value={formData.status} onValueChange={(value) => handleInputChange('status', value)}>
+              <Select 
+                key={`status-${scenario?.id || 'new'}-${formData.status}`}
+                value={formData.status} 
+                onValueChange={(value) => handleInputChange('status', value)}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -225,6 +271,9 @@ export function ScenarioForm({ scenario, onClose, onSuccess }: ScenarioFormProps
                   <SelectItem value="archived">Archived</SelectItem>
                 </SelectContent>
               </Select>
+              <div className="text-xs text-muted-foreground">
+                Current formData.status: {formData.status}
+              </div>
             </div>
           </div>
 

@@ -34,6 +34,7 @@ export const CreateScenarioSchema = z.object({
 export const UpdateScenarioSchema = CreateScenarioSchema.partial().extend({
   id: z.string(),
   tasks: z.array(AdminTaskSchema).optional(),
+  status: ScenarioStatus.default('draft'),
 });
 
 // Status update schema

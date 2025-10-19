@@ -47,6 +47,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const body = await request.json();
     
+    // Ensure status has a default value if empty
+    if (body.status === '' || body.status === null || body.status === undefined) {
+      body.status = 'draft';
+    }
+    
     // Validate request body
     const validatedData = UpdateScenarioSchema.parse({
       ...body,
