@@ -3,6 +3,7 @@ import { z } from "zod"
 import { db } from "@/lib/db"
 import { v4 as uuidv4 } from "uuid"
 import { uploadAudio, generateAudioFilename } from "@/lib/audio-storage"
+import { hasBlobToken } from "@/lib/blob-config"
 
 export const runtime = "nodejs"
 
@@ -129,7 +130,7 @@ export async function POST(request: NextRequest) {
       persist, 
       sessionId, 
       messageId, 
-      hasBlobToken: !!process.env.BLOB_READ_WRITE_TOKEN 
+      hasBlobToken: hasBlobToken() 
     })
 
     // Call OpenAI Audio Speech API
@@ -185,9 +186,9 @@ export async function POST(request: NextRequest) {
         
         const audioId = uuidv4()
         
-        // Check if BLOB_READ_WRITE_TOKEN is available
-        if (!process.env.BLOB_READ_WRITE_TOKEN) {
-          console.error("❌ BLOB_READ_WRITE_TOKEN environment variable is not set")
+        // Check if blob token is available
+        if (!hasBlobToken()) {
+          console.error("❌ Blob token not available for current environment")
           throw new Error("Vercel Blob storage not configured")
         }
         

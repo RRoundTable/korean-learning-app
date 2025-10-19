@@ -1,5 +1,6 @@
 import { put, del } from '@vercel/blob';
 import { v4 as uuidv4 } from 'uuid';
+import { getBlobToken } from './blob-config';
 
 export interface AudioUploadOptions {
   sessionId: string;
@@ -39,15 +40,14 @@ export async function uploadAudio(
     
     console.log(`   Filename: ${filename}`);
     
-    // Check if BLOB_READ_WRITE_TOKEN is available
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      throw new Error('BLOB_READ_WRITE_TOKEN environment variable is not set');
-    }
+    // Get the appropriate blob token based on environment
+    const blobToken = getBlobToken();
     
     // Upload to Vercel Blob
-    const blob = await put(filename, audioData, {
+    const blob = await put(filename, Buffer.from(audioData), {
       access: 'public',
       contentType: options.contentType,
+      token: blobToken,
     });
 
     console.log(`✅ Audio uploaded successfully: ${blob.url}`);
@@ -70,7 +70,9 @@ export async function uploadAudio(
  */
 export async function deleteAudio(url: string): Promise<void> {
   try {
-    await del(url);
+    await del(url, {
+      token: getBlobToken(),
+    });
   } catch (error) {
     console.error('❌ Error deleting audio from Vercel Blob:', error);
     throw new Error('Failed to delete audio from storage');

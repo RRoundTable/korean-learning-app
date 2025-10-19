@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { uploadAudio } from '@/lib/audio-storage';
 import { db } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
+import { hasBlobToken, getBlobTokenPrefix } from '@/lib/blob-config';
 
 export const runtime = 'nodejs';
 
@@ -10,19 +11,19 @@ export async function POST(request: NextRequest) {
     console.log('🧪 TTS Persist Test API called');
     
     // Check environment variables
-    const hasBlobToken = !!process.env.BLOB_READ_WRITE_TOKEN;
+    const blobTokenAvailable = hasBlobToken();
     const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
     
     console.log('🔧 Environment check:', {
-      hasBlobToken,
+      hasBlobToken: blobTokenAvailable,
       hasOpenAIKey,
-      blobTokenPrefix: process.env.BLOB_READ_WRITE_TOKEN?.substring(0, 20) + '...'
+      blobTokenPrefix: getBlobTokenPrefix()
     });
     
-    if (!hasBlobToken) {
+    if (!blobTokenAvailable) {
       return NextResponse.json({ 
-        error: 'BLOB_READ_WRITE_TOKEN not set',
-        hasBlobToken,
+        error: 'Blob token not available for current environment',
+        hasBlobToken: blobTokenAvailable,
         hasOpenAIKey 
       }, { status: 500 });
     }
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     if (!hasOpenAIKey) {
       return NextResponse.json({ 
         error: 'OPENAI_API_KEY not set',
-        hasBlobToken,
+        hasBlobToken: blobTokenAvailable,
         hasOpenAIKey 
       }, { status: 500 });
     }
