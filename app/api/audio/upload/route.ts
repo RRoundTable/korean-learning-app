@@ -88,15 +88,14 @@ export async function POST(request: NextRequest) {
       durationMs: validatedData.durationMs,
     });
     
-    // TODO: Run STT on the audio for transcription
-    // For now, we'll leave transcription as null
-    const transcription = null;
+    // Keep text as null for immediate response
+    const text = null;
     
     // Save metadata to database
     await db.execute({
       sql: `INSERT INTO audio_files (
         id, session_id, message_id, audio_type, format, content_type, 
-        vercel_url, duration_ms, transcription
+        vercel_url, duration_ms, text
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         audioId,
@@ -107,7 +106,7 @@ export async function POST(request: NextRequest) {
         contentType,
         uploadResult.url,
         validatedData.durationMs || null,
-        transcription
+        text
       ]
     });
     
@@ -117,9 +116,52 @@ export async function POST(request: NextRequest) {
       url: uploadResult.url,
       contentType: uploadResult.contentType,
       durationMs: uploadResult.durationMs,
-      transcription,
+      transcription: text, // Keep API response field name for compatibility
     };
     
+    // Background STT processing (executes after response is sent)
+    setImmediate(async () => {
+      try {
+        console.log('🔄 Starting background STT processing for audio:', audioId);
+        
+        // Create FormData for STT API call
+        const sttFormData = new FormData();
+        sttFormData.append('file', new Blob([audioBuffer]), 'audio.webm');
+        sttFormData.append('language', 'ko');
+        sttFormData.append('prompt', '한국어 대화 연습');
+        
+        // Call STT API
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        const sttResponse = await fetch(`${baseUrl}/api/openai/speech-to-text`, {
+          method: 'POST',
+          body: sttFormData,
+        });
+        
+        if (sttResponse.ok) {
+          const sttData = await sttResponse.json();
+          const backgroundText = sttData.text || null;
+          
+          if (backgroundText) {
+            // Update database record with text
+            await db.execute({
+              sql: `UPDATE audio_files SET text = ? WHERE id = ?`,
+              args: [backgroundText, audioId]
+            });
+            
+            console.log('✅ Background STT completed for audio:', audioId, 'Text:', backgroundText);
+          } else {
+            console.log('⚠️ Background STT returned empty text for audio:', audioId);
+          }
+        } else {
+          console.error('❌ Background STT API call failed:', sttResponse.status, sttResponse.statusText);
+        }
+      } catch (error) {
+        console.error('❌ Background STT processing failed for audio:', audioId, error);
+        // Don't affect user experience - this is background processing only
+      }
+    });
+    
+    // Return response immediately
     return NextResponse.json(response);
     
   } catch (error) {
