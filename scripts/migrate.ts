@@ -31,7 +31,8 @@ async function runMigrations() {
       '003_add_initial_message_to_scenarios.sql',
       '004_new_migration.sql',
       '005_add_status_to_scenarios.sql',
-      '006_update_existing_scenarios_status.sql'
+      '006_update_existing_scenarios_status.sql',
+      '007_unify_text_field.sql' 
     ];
 
     for (const filename of migrationFiles) {
@@ -56,10 +57,11 @@ async function runMigrations() {
       const statements = migrationSQL
         .split(';')
         .map(stmt => stmt.trim())
-        .filter(stmt => stmt.length > 0);
+        .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
 
       for (const statement of statements) {
-        if (statement.trim()) {
+        if (statement.trim() && !statement.startsWith('--')) {
+          console.log(`Executing statement: ${statement.substring(0, 50)}...`);
           await db.execute(statement);
         }
       }
