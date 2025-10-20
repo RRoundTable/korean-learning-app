@@ -890,24 +890,7 @@ export function ConversationPractice({ scenario, onBack, initialMessage }: Conve
       // STT 완료 후 즉시 처리 상태 해제
       setIsProcessing(false)
 
-      // Update user message - find and update the waiting user message
-      
-      setMessages(prev => {
-        let messageUpdated = false
-        const updatedMessages = prev.map(msg => {
-          // Update the first waiting user message (only once)
-          if (!messageUpdated && msg.role === "user" && msg.isWaiting) {
-            
-            messageUpdated = true
-            return { ...msg, text: userText, isWaiting: false }
-          }
-          return msg
-        })
-        
-        return updatedMessages
-      })
-
-      // 나머지 처리는 공통 로직 사용
+      // 나머지 처리는 공통 로직 사용 (메시지 업데이트는 processChatLogic에서 처리)
       await processChatLogic(userText)
 
     } catch (error) {
